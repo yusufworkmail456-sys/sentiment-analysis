@@ -54,24 +54,39 @@ def scrape_ig(keyword, max_comments=100, log=print):
         except Exception as e:
             log(f"IG: sesi tersimpan kadaluarsa ({type(e).__name__})")
     if not ok:
+        # Fallback 1: UI credential form (sessions/instagram.json)
+        ui_sess = {}
+        try:
+            from scrapers_extra import _load_session
+            s = _load_session("instagram")
+            if isinstance(s, dict):
+                ui_sess = s
+        except Exception:
+            pass
         sid = os.environ.get("IG_SESSIONID")
-        user, pwd = os.environ.get("IG_USER"), os.environ.get("IG_PASS")
+        user = ui_sess.get("username") or os.environ.get("IG_USER")
+        pwd = ui_sess.get("password") or os.environ.get("IG_PASS")
         try:
             if sid:
                 cl.login_by_sessionid(sid)
                 cl.get_timeline_feed()
                 cl.dump_settings(SESSION_FILE)
                 ok = True
+                log("IG: login via IG_SESSIONID ok")
         except Exception:
             pass
         if not ok and user and pwd:
-            cl.login(user, pwd)
-            cl.get_timeline_feed()
-            cl.dump_settings(SESSION_FILE)
-            ok = True
+            try:
+                cl.login(user, pwd)
+                cl.get_timeline_feed()
+                cl.dump_settings(SESSION_FILE)
+                ok = True
+                log("IG: login via username/password ok")
+            except Exception as e:
+                log(f"IG: login user/pass gagal: {type(e).__name__} {str(e)[:100]}")
     if not ok:
-        raise RuntimeError("IG butuh login: ig_session.json tidak valid "
-                           "dan tidak ada IG_SESSIONID/IG_USER+IG_PASS di env")
+        raise RuntimeError("IG butuh login: buka 'Kredensial Sumber Data', "
+                           "isi IG username + password, klik Simpan IG")
 
     posts_needed = max(3, min(15, math.ceil(max_comments / 25) + 2))
     log(f"IG: cari postingan #{tag} (target {posts_needed} post) ...")
@@ -148,7 +163,22 @@ def scrape_yt(keyword, max_comments=100, log=print):
 
     dl = YoutubeCommentDownloader()
     rows = []
+    video_entries = []
     for ent in entries:
+        ent_url = ent.get("url", "")
+        ent_id = ent.get("id", "")
+        # Skip channel results: their URL contains '/channel/' and their ID
+        # starts with 'UC' (24 chars).  Only keep actual video entries.
+        if "/channel/" in ent_url:
+            continue
+        if ent_id and len(ent_id) == 24 and ent_id.startswith("UC"):
+            continue
+        if "watch?v=" not in ent_url and not ent_id:
+            continue
+        video_entries.append(ent)
+
+    log(f"YT: {len(video_entries)} video (filtered from {len(entries)} entries)")
+    for ent in video_entries:
         if len(rows) >= max_comments:
             break
         vid = ent.get("id")

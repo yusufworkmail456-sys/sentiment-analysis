@@ -28,6 +28,20 @@ from scrapers_extra import (  # noqa: E402
     save_session, check_session, test_facebook, test_tiktok,
 )
 from taspen_categorize import classify_df  # noqa: E402
+from icons import icon, icon_text, dot, badge
+import icons as ic
+
+# Load IG credentials from UI form into env (for scraper fallback)
+try:
+    from scrapers_extra import _load_session as _ig_load_session
+    _ig_creds = _ig_load_session("instagram")
+    if isinstance(_ig_creds, dict):
+        if _ig_creds.get("username") and not os.environ.get("IG_USER"):
+            os.environ["IG_USER"] = _ig_creds["username"]
+        if _ig_creds.get("password") and not os.environ.get("IG_PASS"):
+            os.environ["IG_PASS"] = _ig_creds["password"]
+except Exception:
+    pass
 
 MODEL_NAME = "w11wo/indonesian-roberta-base-sentiment-classifier"
 OUT_DIR = Path(__file__).parent / "hasil"
@@ -53,17 +67,28 @@ def _get_llm_key():
 
 LLM_API_KEY = _get_llm_key()
 
+
+def _load_ig_session():
+    """Load IG session dict directly — check_session() only returns 'ok'/'not_setup'."""
+    try:
+        from scrapers_extra import _load_session
+        s = _load_session("instagram")
+        return s if isinstance(s, dict) else {}
+    except Exception:
+        return {}
+
+
 LABELS = ("Positif", "Netral", "Negatif")
 LABEL_COLOR = {"Positif": "#2ecc71", "Netral": "#95a5a6", "Negatif": "#e74c3c"}
-LABEL_EMOJI = {"Positif": "🟢", "Netral": "⚪", "Negatif": "🔴"}
+LABEL_DOT = {"Positif": ic.C_POSITIF, "Netral": ic.C_NETRAL, "Negatif": ic.C_NEGATIF}
 LABEL_ID = {"positive": "Positif", "neutral": "Netral", "negative": "Negatif"}
 SOURCE_LABEL = {
     "instagram": "Instagram", "youtube": "YouTube", "web": "Web berita",
     "facebook": "Facebook", "tiktok": "TikTok", "playstore": "Play Store",
 }
-SOURCE_EMOJI = {
-    "instagram": "📷", "youtube": "▶️", "web": "📰",
-    "facebook": "👥", "tiktok": "🎵", "playstore": "📱",
+SOURCE_ICON = {
+    "instagram": "instagram", "youtube": "youtube", "web": "web",
+    "facebook": "facebook", "tiktok": "tiktok", "playstore": "playstore",
 }
 TASPEN_STOPWORDS = {
     "taspen", "pensun", "pensiun", "pns", "asn", "pegawai", "negeri",
@@ -71,17 +96,30 @@ TASPEN_STOPWORDS = {
 }
 FONT_PATH = str(Path(__file__).parent / "assets" / "fonts" / "DejaVuSans.ttf")
 
-st.set_page_config(page_title="Sentiment Taspen", page_icon="📊", layout="wide")
+st.set_page_config(page_title="Sentiment Taspen", layout="wide")
 
 # === Compact theme ===
 st.markdown("""
 <style>
+  :root {
+    --ss-primary: #3498db;
+    --ss-primary-dark: #2980b9;
+    --ss-ink: #0b1120;
+    --ss-text: #1e293b;
+    --ss-muted: #64748b;
+    --ss-success: #22c55e;
+    --ss-warning: #f59e0b;
+    --ss-danger: #ef4444;
+    --ss-positif: #2ecc71;
+    --ss-netral: #95a5a6;
+    --ss-negatif: #e74c3c;
+  }
   [data-testid="stHeader"] {display: none;}
   #MainMenu, footer {visibility: hidden;}
   .block-container {padding-top: 0.5rem; padding-bottom: 1rem; max-width: 100%;}
   [data-testid="stMetric"] {
-      background: rgba(127,127,127,0.05);
-      border: 1px solid rgba(127,127,127,0.12);
+      background: rgba(52,152,219,0.04);
+      border: 1px solid rgba(52,152,219,0.12);
       border-radius: 6px;
       padding: 4px 8px !important;
   }
@@ -104,6 +142,8 @@ st.markdown("""
   /* Sticky right column */
   div[data-testid="stVerticalBlockBorderWrapper"]:has(> div > [data-testid="stChatMessage"]),
   .sticky-right {position: sticky; top: 0;}
+  .ss-card-title {font-size: 0.88rem; font-weight: 700; color: var(--ss-text); margin-bottom: 0.1rem;}
+  .ss-card-desc {font-size: 0.72rem; color: var(--ss-muted); margin-bottom: 0.3rem;}
 </style>
 """, unsafe_allow_html=True)
 
@@ -172,18 +212,18 @@ def build_insights(df, exclude=()):
     pct = {k: 100 * cnt.get(k, 0) / total for k in LABELS}
     skor = pct["Positif"] - pct["Negatif"]
     dom = cnt.idxmax()
-    out = [f"**{LABEL_EMOJI[dom]} {dom}** — {cnt.get(dom,0)}/{total} ({pct[dom]:.0f}%). "
+    out = [f"**{dom}** — {cnt.get(dom,0)}/{total} ({pct[dom]:.0f}%). "
            f"Skor **{skor:+.0f}** (−100 s/d +100)."]
     ragu = int((pd.to_numeric(df["score"], errors="coerce") < 0.6).sum())
     if ragu:
-        out.append(f"⚠️ {ragu} data ({100*ragu/total:.0f}%) skor <0.6 (mungkin meleset).")
+        out.append(f"{icon('warning', 14, ic.C_WARNING)} {ragu} data ({100*ragu/total:.0f}%) skor <0.6 (mungkin meleset).")
     g = df.groupby("source").agg(n=("text","size"), neg=("label", lambda s:(s=="Negatif").sum()))
     g = g[g["n"] >= 5]
     if len(g):
         g["share"] = 100 * g["neg"] / g["n"]
         top = g.sort_values("share", ascending=False).iloc[0]
         if top["share"] >= 20:
-            out.append(f"🔴 Keluhan di **{SOURCE_LABEL.get(top.name,top.name)}**: {top['share']:.0f}% negatif.")
+            out.append(f"{dot(ic.C_NEGATIF, 8)} Keluhan di **{SOURCE_LABEL.get(top.name,top.name)}**: {top['share']:.0f}% negatif.")
     neg_texts = df.loc[df["label"]=="Negatif","text"].astype(str).tolist()
     if len(neg_texts) >= 3:
         terms = top_terms(neg_texts, 5, exclude=exclude)
@@ -192,7 +232,7 @@ def build_insights(df, exclude=()):
     if "kategori" in df.columns:
         cat_neg = df[df["label"]=="Negatif"]["kategori"].value_counts()
         if len(cat_neg) and cat_neg.iloc[0] > 0:
-            out.append(f"📋 Kategori keluhan terbanyak: **{cat_neg.index[0]}** ({cat_neg.iloc[0]}).")
+            out.append(f"{icon('clipboard', 14, ic.C_PRIMARY)} Kategori keluhan terbanyak: **{cat_neg.index[0]}** ({cat_neg.iloc[0]}).")
     return out
 
 
@@ -456,12 +496,12 @@ def export_pdf(df, meta, ai_summary=None, ai_reco=None):
     with open(out_path, "rb") as f:
         return f.read()
 # ================================================================ MAIN
-st.title("📊 Sentiment Analysis — Taspen")
+st.markdown(f'<div style="display:flex;align-items:center;gap:8px;">{icon("chart", 28, ic.C_PRIMARY)}<h1 style="margin:0;">Sentiment Analysis — Taspen</h1></div>', unsafe_allow_html=True)
 st.caption("Multi-platform · IndoBERT · Taspen categorization · AI insight")
 
 # AI panel visibility: hidden (default) → narrow → wide
 _ai_state = st.session_state.get("ai_state", "hidden")  # hidden | narrow | wide
-_ai_btn_label = {"hidden": "🤖 AI", "narrow": "⤢ AI", "wide": "⤡ AI"}[_ai_state]
+_ai_btn_label = {"hidden": "AI", "narrow": "AI ⤢", "wide": "AI ⤡"}[_ai_state]
 
 # Top bar: title area + AI toggle button
 _top1, _top2 = st.columns([10, 1])
@@ -482,38 +522,41 @@ else:  # wide
 
 # ================================================ MAIN AREA: Tabs
 with _main_area:
-    tab_scrape, tab_dash = st.tabs(["🔍 Scrape & Analisis", "📊 Dashboard"])
+    tab_scrape, tab_dash = st.tabs(["Scrape & Analisis", "Dashboard"])
     with tab_scrape:
         df = st.session_state.get("df")
 
         # --- Credential management (inline, compact) ---
-        with st.expander("🔑 Kredensial Sumber Data", expanded=False):
+        with st.expander("Kredensial Sumber Data", expanded=False):
             cred_c1, cred_c2, cred_c3 = st.columns(3)
 
             def _status_badge(plat):
                 s = check_session(plat)
                 if plat in ("youtube", "web", "playstore"):
-                    return "✅"
+                    return badge("OK", ic.C_SUCCESS)
                 if s == "ok":
-                    return "✅"
-                return "❌"
+                    return badge("OK", ic.C_SUCCESS)
+                return badge("OFF", ic.C_MUTED)
 
             with cred_c1:
-                st.markdown(f"**📷 IG** {_status_badge('instagram')}  ·  **▶️ YT** ✅")
-                ig_sess = check_session("instagram") if check_session("instagram") == "ok" else {}
-                ig_user_val = ig_sess.get("username", "") if isinstance(ig_sess, dict) else ""
+                st.markdown(f'{icon_text("instagram", "IG", 16, ic.C_PRIMARY, bold=True)} {_status_badge("instagram")}  ·  {icon_text("youtube", "YT", 16, ic.C_PRIMARY, bold=True)} {badge("OK", ic.C_SUCCESS)}', unsafe_allow_html=True)
+                ig_sess = _load_ig_session()
+                ig_user_val = ig_sess.get("username", "")
                 ig_user = st.text_input("IG username", key="ig_user", value=ig_user_val, label_visibility="collapsed", placeholder="IG username")
                 ig_pwd = st.text_input("IG password", type="password", key="ig_pwd", label_visibility="collapsed", placeholder="IG password")
-                if st.button("💾", key="save_ig", help="Simpan IG"):
-                    data = {"username": ig_user.strip()}
-                    if ig_pwd: data["password"] = ig_pwd
-                    save_session("instagram", data)
-                    st.rerun()
+                if st.button("Simpan IG", key="save_ig", help="Simpan & login IG"):
+                    if ig_user.strip() and ig_pwd:
+                        save_session("instagram", {"username": ig_user.strip(), "password": ig_pwd})
+                        os.environ["IG_USER"] = ig_user.strip()
+                        os.environ["IG_PASS"] = ig_pwd
+                        st.rerun()
+                    else:
+                        st.error("Username dan password wajib diisi.")
 
             with cred_c2:
-                st.markdown(f"**👥 FB** {_status_badge('facebook')}  ·  **🎵 TikTok** {_status_badge('tiktok')}")
+                st.markdown(f'{icon_text("facebook", "FB", 16, ic.C_PRIMARY, bold=True)} {_status_badge("facebook")}  ·  {icon_text("tiktok", "TikTok", 16, ic.C_PRIMARY, bold=True)} {_status_badge("tiktok")}', unsafe_allow_html=True)
                 fb_cookie = st.text_area("FB cookie", key="fb_cookie", height=40, label_visibility="collapsed", placeholder="Paste FB cookie (c_user, xs, ...)")
-                if st.button("💾 FB", key="save_fb"):
+                if st.button("Simpan FB", key="save_fb"):
                     if fb_cookie.strip():
                         ok, msg = test_facebook(fb_cookie.strip())
                         if ok:
@@ -522,7 +565,7 @@ with _main_area:
                         else: st.error(msg)
 
                 tt_token = st.text_input("TikTok ms_token", key="tt_token", type="password", label_visibility="collapsed", placeholder="TikTok ms_token")
-                if st.button("💾 TikTok", key="save_tt"):
+                if st.button("Simpan TikTok", key="save_tt"):
                     if tt_token.strip():
                         ok, msg = test_tiktok(tt_token.strip())
                         if ok:
@@ -531,11 +574,11 @@ with _main_area:
                         else: st.error(msg)
 
             with cred_c3:
-                st.markdown(f"**📱 Play Store** ✅  ·  **📰 Web** ✅")
+                st.markdown(f'{icon_text("playstore", "Play Store", 16, ic.C_PRIMARY, bold=True)} {badge("OK", ic.C_SUCCESS)}  ·  {icon_text("web", "Web", 16, ic.C_PRIMARY, bold=True)} {badge("OK", ic.C_SUCCESS)}', unsafe_allow_html=True)
                 st.caption("Play Store & Web: tanpa login. Review app Andal/TASPEN Mobile/TASPEN Life otomatis.")
 
         # --- Config & Run ---
-        with st.expander("⚙️ Konfigurasi", expanded=df is None):
+        with st.expander("Konfigurasi", expanded=df is None):
             p = st.pills("Contoh:", ["taspen", "klaim taspen", "dapen online", "pensiun pns"], key="kw_pills")
             if p and p != st.session_state.get("kw_applied"):
                 st.session_state["kw_input"] = p
@@ -546,25 +589,25 @@ with _main_area:
 
             s1, s2, s3, s4, s5, s6 = st.columns(6)
             with s1:
-                ig_on = st.toggle("📷 IG", value=True, key="ig_on")
+                ig_on = st.toggle("IG", value=True, key="ig_on")
                 n_ig = st.number_input("max", 0, 300, 60, 10, key="n_ig", disabled=not ig_on, label_visibility="collapsed")
             with s2:
-                yt_on = st.toggle("▶️ YT", value=True, key="yt_on")
+                yt_on = st.toggle("YT", value=True, key="yt_on")
                 n_yt = st.number_input("max", 0, 300, 60, 10, key="n_yt", disabled=not yt_on, label_visibility="collapsed")
             with s3:
-                web_on = st.toggle("📰 Web", value=True, key="web_on")
+                web_on = st.toggle("Web", value=True, key="web_on")
                 n_web = st.number_input("max", 0, 30, 8, 1, key="n_web", disabled=not web_on, label_visibility="collapsed")
             with s4:
-                ps_on = st.toggle("📱 Play Store", value=True, key="ps_on")
+                ps_on = st.toggle("Play Store", value=True, key="ps_on")
                 n_ps = st.number_input("max", 0, 300, 60, 10, key="n_ps", disabled=not ps_on, label_visibility="collapsed")
             with s5:
-                fb_on = st.toggle("👥 FB", value=False, key="fb_on")
+                fb_on = st.toggle("FB", value=False, key="fb_on")
                 n_fb = st.number_input("max", 0, 300, 60, 10, key="n_fb", disabled=not fb_on, label_visibility="collapsed")
             with s6:
-                tt_on = st.toggle("🎵 TikTok", value=False, key="tt_on")
+                tt_on = st.toggle("TikTok", value=False, key="tt_on")
                 n_tt = st.number_input("max", 0, 300, 60, 10, key="n_tt", disabled=not tt_on, label_visibility="collapsed")
 
-            run_scrape = st.button("🚀 Mulai Scrape + Analisis", type="primary", use_container_width=True)
+            run_scrape = st.button("Mulai Scrape + Analisis", type="primary", use_container_width=True)
 
         if run_scrape:
             if not keyword.strip():
@@ -581,13 +624,13 @@ with _main_area:
 
                 def ambil(nama, fn, n):
                     if n <= 0: return
-                    log(f"▶ {nama}: mulai (target {n})...")
+                    log(f"> {nama}: mulai (target {n})...")
                     try:
                         got = fn(keyword.strip(), n, log)
                         rows.extend(got)
-                        log(f"✓ {nama}: {len(got)} baris")
+                        log(f"OK {nama}: {len(got)} baris")
                     except Exception as e:
-                        log(f"✗ {nama}: {type(e).__name__} {str(e)[:120]}")
+                        log(f"FAIL {nama}: {type(e).__name__} {str(e)[:120]}")
 
                 if ig_on: ambil("Instagram", scrape_ig, n_ig)
                 if yt_on: ambil("YouTube", scrape_yt, n_yt)
@@ -624,7 +667,7 @@ with _main_area:
         # --- Results ---
         df = st.session_state.get("df")
         if df is None:
-            st.info("👆 Atur parameter, lalu klik **Mulai Scrape + Analisis**.")
+            st.info("Atur parameter, lalu klik **Mulai Scrape + Analisis**.")
         else:
             meta = st.session_state.get("meta", {})
             out_csv = st.session_state.get("out_csv", "")
@@ -640,13 +683,13 @@ with _main_area:
             pct = {k: round(100 * cnt.get(k, 0) / total, 1) for k in LABELS}
             skor = round(pct["Positif"] - pct["Negatif"], 1)
 
-            st.markdown(f"**Hasil — {meta.get('keyword', '?')}** · {total} data · 🟢{pct['Positif']}% ⚪{pct['Netral']}% 🔴{pct['Negatif']}% · skor {skor:+.1f}")
+            st.markdown(f'**Hasil — {meta.get("keyword", "?")}** · {total} data · {dot(ic.C_POSITIF, 8)} {pct["Positif"]}% {dot(ic.C_NETRAL, 8)} {pct["Netral"]}% {dot(ic.C_NEGATIF, 8)} {pct["Negatif"]}% · skor {skor:+.1f}', unsafe_allow_html=True)
 
             k1, k2, k3, k4 = st.columns(4)
             k1.metric("Total", total)
-            k2.metric("🟢 Positif", f"{pct['Positif']}%")
-            k3.metric("⚪ Netral", f"{pct['Netral']}%")
-            k4.metric("🔴 Negatif", f"{pct['Negatif']}%")
+            k2.metric("Positif", f"{pct['Positif']}%")
+            k3.metric("Netral", f"{pct['Netral']}%")
+            k4.metric("Negatif", f"{pct['Negatif']}%")
 
             with st.container(border=True):
                 for b in build_insights(df, exclude=kw_terms):
@@ -662,12 +705,12 @@ with _main_area:
                 for lab in LABELS:
                     sub = df[df["label"] == lab].sort_values("likes", ascending=False).head(2)
                     if sub.empty: continue
-                    with st.expander(f"{LABEL_EMOJI[lab]} {lab} ({cnt.get(lab,0)})", expanded=(lab == "Negatif")):
+                    with st.expander(f"{lab} ({cnt.get(lab,0)})", expanded=(lab == "Negatif")):
                         for _, r in sub.iterrows():
-                            warn = " · ⚠️skor rendah" if r["keyakinan"] == "ragu" else ""
-                            st.markdown(f"> {str(r['text'])[:200]}  \n> {SOURCE_LABEL.get(r['source'],r['source'])} · 👍{r['likes']} · skor {r['score']} · 📋{r.get('kategori','?')}{warn}")
+                            warn = " · skor rendah" if r["keyakinan"] == "ragu" else ""
+                            st.markdown(f"> {str(r['text'])[:200]}  \n> {SOURCE_LABEL.get(r['source'],r['source'])} · likes:{r['likes']} · skor {r['score']} · {r.get('kategori','?')}{warn}")
 
-            with st.expander("🗂️ Data + Filter"):
+            with st.expander("Data + Filter"):
                 # Filters
                 f1, f2, f3, f4 = st.columns(4)
                 with f1:
@@ -712,21 +755,21 @@ with _main_area:
                     })
                 csv_bytes = df.to_csv(index=False, encoding="utf-8").encode("utf-8")
                 fname = Path(out_csv).name if out_csv else "hasil.csv"
-                st.download_button("⬇️ CSV", csv_bytes, file_name=fname, mime="text/csv")
+                st.download_button("CSV", csv_bytes, file_name=fname, mime="text/csv")
 
-            with st.expander("📝 Log"):
+            with st.expander("Log"):
                 st.code("\n".join(st.session_state.get("logs", ["(kosong)"])), language=None)
     # ========== TAB: DASHBOARD ==========
     with tab_dash:
         df = st.session_state.get("df")
         if df is None or df.empty:
-            st.info("⚠️ Jalankan scraping di tab 'Scrape & Analisis' dulu.")
+            st.info("Jalankan scraping di tab 'Scrape & Analisis' dulu.")
         else:
             # --- PDF Export button ---
             tr1, tr2 = st.columns([4, 1])
             with tr2:
                 st.write("")
-                export_pdf_btn = st.button("📄 Export PDF", key="btn_pdf", use_container_width=True)
+                export_pdf_btn = st.button("Export PDF", key="btn_pdf", use_container_width=True)
 
             total = len(df)
             cnt = df["label"].value_counts()
@@ -740,14 +783,14 @@ with _main_area:
 
             # === PDF Export ===
             if export_pdf_btn:
-                with st.spinner("📄 Generating PDF..."):
+                with st.spinner("Generating PDF..."):
                     try:
                         pdf_bytes = export_pdf(df, st.session_state.get("meta", {}),
                             st.session_state.get("ai_summary"), st.session_state.get("ai_reco"))
-                        st.download_button("⬇️ Download PDF", pdf_bytes,
+                        st.download_button("Download PDF", pdf_bytes,
                             file_name=f"sentiment_report_{datetime.now().strftime('%Y%m%d_%H%M')}.pdf",
                             mime="application/pdf", key="dl_pdf")
-                        st.success("✅ PDF siap diunduh!")
+                        st.success("PDF siap diunduh!")
                     except Exception as e:
                         st.error(f"PDF error: {e}")
 
@@ -772,8 +815,7 @@ with _main_area:
             r1c1, r1c2 = st.columns([1, 2])
             with r1c1:
                 with st.container(border=True):
-                    st.markdown("#### 📊 GSS Score")
-                    st.caption("Skor sentimen keseluruhan (0-100)")
+                    st.markdown(f'<div class="ss-card-title">{icon("gauge", 18, ic.C_PRIMARY)} GSS Score</div><div class="ss-card-desc">Skor sentimen keseluruhan (0-100)</div>', unsafe_allow_html=True)
                     st.markdown(f"**{gss:.1f}/100** · Skor {skor:+.1f}")
                     fig_gauge = go.Figure(go.Indicator(
                         mode="gauge+number", value=gss,
@@ -794,8 +836,7 @@ with _main_area:
 
             with r1c2:
                 with st.container(border=True):
-                    st.markdown("#### 📊 Sentiment per Kategori")
-                    st.caption("Persentase positif vs negatif per kategori Taspen")
+                    st.markdown(f'<div class="ss-card-title">{icon("chart", 18, ic.C_PRIMARY)} Sentiment per Kategori</div><div class="ss-card-desc">Persentase positif vs negatif per kategori Taspen</div>', unsafe_allow_html=True)
                     if "kategori" in df.columns:
                         absa_data = df.groupby(["kategori", "label"]).size().unstack(fill_value=0)
                         for lab in LABELS:
@@ -817,8 +858,7 @@ with _main_area:
             r2c1, r2c2 = st.columns(2)
             with r2c1:
                 with st.container(border=True):
-                    st.markdown("#### 📊 Persebaran per Sumber")
-                    st.caption("Komposisi sentimen tiap platform")
+                    st.markdown(f'<div class="ss-card-title">{icon("dashboard", 18, ic.C_PRIMARY)} Persebaran per Sumber</div><div class="ss-card-desc">Komposisi sentimen tiap platform</div>', unsafe_allow_html=True)
                     src_data = df.groupby(["source", "label"]).size().unstack(fill_value=0)
                     for lab in LABELS:
                         if lab not in src_data.columns: src_data[lab] = 0
@@ -833,8 +873,7 @@ with _main_area:
 
             with r2c2:
                 with st.container(border=True):
-                    st.markdown("#### 🏆 Channel Scorecard")
-                    st.caption("Ranking platform berdasarkan GSS")
+                    st.markdown(f'<div class="ss-card-title">{icon("trophy", 18, ic.C_PRIMARY)} Channel Scorecard</div><div class="ss-card-desc">Ranking platform berdasarkan GSS</div>', unsafe_allow_html=True)
                     score_data = []
                     for src, g in df.groupby("source"):
                         n = len(g)
@@ -856,8 +895,7 @@ with _main_area:
             r3c1, r3c2 = st.columns([1, 2])
             with r3c1:
                 with st.container(border=True):
-                    st.markdown("#### 📋 Top Terms Negatif")
-                    st.caption("Kata paling sering muncul di keluhan")
+                    st.markdown(f'<div class="ss-card-title">{icon("clipboard", 18, ic.C_PRIMARY)} Top Terms Negatif</div><div class="ss-card-desc">Kata paling sering muncul di keluhan</div>', unsafe_allow_html=True)
                     neg_texts = df.loc[df["label"] == "Negatif", "text"].astype(str).tolist()
                     if len(neg_texts) >= 3:
                         terms = top_terms(neg_texts, 12, exclude=kw_terms)
@@ -873,8 +911,7 @@ with _main_area:
 
             with r3c2:
                 with st.container(border=True):
-                    st.markdown("#### 📡 Viral Detection")
-                    st.caption("Post dengan engagement tinggi — priority response")
+                    st.markdown(f'<div class="ss-card-title">{icon("broadcast", 18, ic.C_PRIMARY)} Viral Detection</div><div class="ss-card-desc">Post dengan engagement tinggi — priority response</div>', unsafe_allow_html=True)
                     fig_scatter = px.scatter(df, x="score", y="likes", color="label", color_discrete_map=LABEL_COLOR,
                         hover_data=["source", "text", "kategori"], size="likes", size_max=30)
                     fig_scatter.update_layout(height=260, margin=dict(t=5, b=5, l=5, r=5),
