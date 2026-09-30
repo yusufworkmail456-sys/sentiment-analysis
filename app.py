@@ -758,8 +758,15 @@ with _main_area:
                 if len(critical) > 0:
                     alert_html = ""
                     for cat, pct_val in critical.items():
-                        alert_html += f"<span style='background:#e74c3c;color:white;padding:2px 8px;border-radius:4px;font-size:0.75rem;margin:2px;'>🔴 {cat}: {pct_val:.0f}% negatif</span>"
+                        alert_html += f"<span style='background:#e74c3c;color:white;padding:2px 8px;border-radius:4px;font-size:0.75rem;margin:2px;'>{cat}: {pct_val:.0f}% negatif</span>"
                     st.markdown(f"<div style='margin-bottom:8px;'>{alert_html}</div>", unsafe_allow_html=True)
+
+            # === METRIC CARDS ===
+            m1, m2, m3, m4 = st.columns(4)
+            m1.metric("Total", total)
+            m2.metric("Positif", f"{pct['Positif']}%")
+            m3.metric("Netral", f"{pct['Netral']}%")
+            m4.metric("Negatif", f"{pct['Negatif']}%")
 
             # === ROW 1: GSS Gauge + ABSA Diverging ===
             r1c1, r1c2 = st.columns([1, 2])
