@@ -1,0 +1,898 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>SentimentScope — Documentation</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+
+:root{
+  --primary:#3498db; --primary-dark:#2980b9; --primary-light:#ebf5fb;
+  --ink:#0b1120; --text:#1e293b; --muted:#64748b; --muted-light:#94a3b8;
+  --surface:#ffffff; --bg:#f8fafc; --border:#e2e8f0; --border-light:#f1f5f9;
+  --code-bg:#0b1120; --code-surface:#1e293b; --code-text:#e2e8f0; --code-muted:#64748b;
+  --success:#22c55e; --warning:#f59e0b; --danger:#ef4444;
+  --radius:14px; --radius-sm:10px; --radius-xs:6px;
+  --font-display:'Space Grotesk',system-ui,sans-serif;
+  --font-body:'Inter',system-ui,sans-serif;
+  --font-mono:'JetBrains Mono','SF Mono',monospace;
+}
+*{margin:0;padding:0;box-sizing:border-box}
+html{scroll-behavior:smooth}
+body{font-family:var(--font-body);background:var(--bg);color:var(--text);line-height:1.6;-webkit-font-smoothing:antialiased}
+a{color:var(--primary);text-decoration:none}
+a:hover{text-decoration:underline}
+
+/* ── Layout ──────────────────────── */
+.layout{display:flex;min-height:100vh}
+
+/* ── Sidebar TOC ─────────────────── */
+.toc{
+  width:280px;flex-shrink:0;background:var(--surface);border-right:1px solid var(--border);
+  position:fixed;height:100vh;overflow-y:auto;padding:24px 0;z-index:50;
+}
+.toc-header{padding:0 24px 20px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:10px}
+.toc-header .logo-mark{width:28px;height:28px}
+.toc-header .logo-text{font-family:var(--font-display);font-size:1.1rem;font-weight:700;color:var(--ink);letter-spacing:-.02em}
+.toc-header .doc-badge{font-family:var(--font-mono);font-size:.6rem;color:var(--muted-light);background:var(--bg);padding:2px 8px;border-radius:99px;margin-left:auto}
+.toc-search{padding:16px 24px 12px}
+.toc-search input{width:100%;padding:8px 14px;border:1px solid var(--border);border-radius:var(--radius-sm);font-size:.82rem;font-family:var(--font-body);background:var(--bg);transition:border-color .15s}
+.toc-search input:focus{outline:none;border-color:var(--primary);background:var(--surface)}
+.toc-nav{padding:8px 12px}
+.toc-section{font-family:var(--font-mono);font-size:.66rem;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:var(--muted-light);padding:16px 12px 6px}
+.toc-item{display:block;padding:6px 12px;font-size:.84rem;color:var(--text);border-radius:var(--radius-sm);transition:all .12s;line-height:1.4;cursor:pointer}
+.toc-item:hover{background:var(--bg);color:var(--primary);text-decoration:none}
+.toc-item.active{background:var(--primary-light);color:var(--primary);font-weight:600}
+.toc-item.sub{padding-left:28px;font-size:.8rem;color:var(--muted)}
+
+/* ── Content ─────────────────────── */
+.content{margin-left:280px;flex:1;padding:48px 56px;max-width:900px;min-width:0}
+.content-header{margin-bottom:48px;padding-bottom:24px;border-bottom:1px solid var(--border)}
+.content-header h1{font-family:var(--font-display);font-size:2.4rem;font-weight:700;color:var(--ink);letter-spacing:-.03em;margin-bottom:8px}
+.content-header .desc{font-size:1.05rem;color:var(--muted)}
+.breadcrumb{display:flex;align-items:center;gap:8px;font-size:.8rem;color:var(--muted-light);margin-bottom:16px;font-family:var(--font-mono)}
+.breadcrumb a{color:var(--muted)}
+
+/* ── Sections ────────────────────── */
+.section{margin-bottom:56px;scroll-margin-top:24px}
+.section h2{font-family:var(--font-display);font-size:1.6rem;font-weight:700;color:var(--ink);letter-spacing:-.02em;margin-bottom:16px;padding-bottom:8px;border-bottom:2px solid var(--border-light)}
+.section h3{font-family:var(--font-display);font-size:1.2rem;font-weight:600;color:var(--ink);margin:28px 0 12px;letter-spacing:-.01em}
+.section h4{font-size:1rem;font-weight:600;color:var(--text);margin:20px 0 8px}
+.section p{margin-bottom:14px;font-size:.92rem;line-height:1.7;color:var(--text)}
+.section ul,.section ol{margin:0 0 16px 20px}
+.section li{margin-bottom:6px;font-size:.92rem;line-height:1.6}
+.section strong{color:var(--ink);font-weight:600}
+
+/* ── Code blocks ─────────────────── */
+.code-block{background:var(--code-bg);border-radius:var(--radius-sm);overflow:hidden;margin:16px 0;border:1px solid #1e293b}
+.code-header{display:flex;align-items:center;justify-content:space-between;padding:8px 16px;background:var(--code-surface);border-bottom:1px solid #334155}
+.code-header .lang{font-family:var(--font-mono);font-size:.72rem;color:var(--code-muted);text-transform:uppercase;letter-spacing:.04em;font-weight:600}
+.code-header .copy-btn{background:none;border:none;color:var(--code-muted);cursor:pointer;font-size:.72rem;font-family:var(--font-mono);transition:color .15s;display:flex;align-items:center;gap:4px}
+.code-header .copy-btn:hover{color:var(--code-text)}
+.code-body{padding:16px 20px;overflow-x:auto}
+.code-body pre{font-family:var(--font-mono);font-size:.82rem;line-height:1.65;color:var(--code-text);white-space:pre}
+.code-body .kw{color:#c084fc}
+.code-body .str{color:#86efac}
+.code-body .com{color:var(--code-muted);font-style:italic}
+.code-body .num{color:#fbbf24}
+.code-body .var{color:#7dd3fc}
+.inline-code{font-family:var(--font-mono);font-size:.84rem;background:var(--primary-light);color:var(--primary-dark);padding:2px 8px;border-radius:4px}
+
+/* ── Callouts ─────────────────────── */
+.callout{padding:16px 20px;border-radius:var(--radius-sm);margin:16px 0;font-size:.88rem;line-height:1.6;border-left:3px solid;display:flex;gap:12px;align-items:flex-start}
+.callout .icon{flex-shrink:0;width:20px;height:20px;margin-top:1px}
+.callout .body{flex:1}
+.callout .body strong{display:block;margin-bottom:4px}
+.callout.info{background:#eff6ff;border-color:#3b82f6;color:#1e40af}
+.callout.warn{background:#fffbeb;border-color:#f59e0b;color:#92400e}
+.callout.danger{background:#fef2f2;border-color:#ef4444;color:#991b1b}
+.callout.tip{background:var(--primary-light);border-color:var(--primary);color:var(--primary-dark)}
+
+/* ── Tables ──────────────────────── */
+.spec-table{width:100%;border-collapse:collapse;margin:16px 0;font-size:.88rem}
+.spec-table th{text-align:left;padding:10px 16px;background:var(--surface);border-bottom:2px solid var(--border);color:var(--muted);font-weight:600;font-size:.76rem;text-transform:uppercase;letter-spacing:.04em}
+.spec-table td{padding:10px 16px;border-bottom:1px solid var(--border-light);vertical-align:top}
+.spec-table td:first-child{font-weight:600;color:var(--ink);white-space:nowrap}
+.spec-table tr:hover{background:var(--surface)}
+
+/* ── Cards ───────────────────────── */
+.info-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:24px;margin:16px 0}
+.info-card h4{font-family:var(--font-display);font-size:1rem;font-weight:600;color:var(--ink);margin-bottom:8px}
+.info-card .card-desc{font-size:.86rem;color:var(--muted);margin-bottom:16px}
+
+/* ── Mode comparison ─────────────── */
+.mode-compare{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin:20px 0}
+.mode-col{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:24px}
+.mode-col h4{font-family:var(--font-display);font-size:1.05rem;font-weight:600;margin-bottom:4px}
+.mode-col .mode-tag{display:inline-block;font-family:var(--font-mono);font-size:.68rem;font-weight:600;padding:3px 10px;border-radius:99px;margin-bottom:14px;text-transform:uppercase;letter-spacing:.04em}
+.mode-col .mode-tag.calm{background:#f1f5f9;color:var(--muted)}
+.mode-col .mode-tag.aggr{background:var(--primary-light);color:var(--primary-dark)}
+.mode-col ul{margin:0;padding-left:18px}
+.mode-col li{font-size:.84rem;margin-bottom:5px;line-height:1.5}
+
+/* ── Steps ──────────────────────── */
+.step{display:flex;gap:16px;margin-bottom:20px}
+.step-num{flex-shrink:0;width:28px;height:28px;background:var(--primary);color:#fff;border-radius:50%;display:flex;align-items:center;justify-content:center;font-family:var(--font-display);font-size:.82rem;font-weight:700;margin-top:1px}
+.step-body{flex:1}
+.step-body h4{font-size:.95rem;font-weight:600;color:var(--ink);margin-bottom:4px}
+.step-body p{font-size:.88rem;margin-bottom:8px}
+
+/* ── Badge ───────────────────────── */
+.badge{display:inline-flex;align-items:center;gap:4px;padding:2px 10px;border-radius:99px;font-size:.72rem;font-weight:600;font-family:var(--font-mono)}
+.badge.req{background:#dcfce7;color:#166534}
+.badge.opt{background:#f1f5f9;color:#64748b}
+.badge.pro{background:var(--primary-light);color:var(--primary-dark)}
+
+/* ── Scrollbar ───────────────────── */
+::-webkit-scrollbar{width:6px;height:6px}
+::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar-thumb{background:#cbd5e1;border-radius:3px}
+::-webkit-scrollbar-thumb:hover{background:#94a3b8}
+
+/* ── Responsive ──────────────────── */
+@media(max-width:960px){
+  .toc{display:none}
+  .content{margin-left:0;padding:32px 20px}
+  .mode-compare{grid-template-columns:1fr}
+}
+
+</style>
+</head>
+<body>
+
+<div class="layout">
+
+<!-- ═══════════════ SIDEBAR TOC ═══════════════ -->
+<aside class="toc">
+  <div class="toc-header">
+    <svg class="logo-mark" viewBox="0 0 28 28" fill="none">
+      <rect width="28" height="28" rx="8" fill="#3498db"/>
+      <path d="M8 18 L12 10 L16 14 L20 8" stroke="#fff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+      <circle cx="20" cy="8" r="2" fill="#fff"/>
+    </svg>
+    <span class="logo-text">SentimentScope</span>
+    <span class="doc-badge">docs</span>
+  </div>
+  <div class="toc-search">
+    <input type="text" id="tocSearch" placeholder="Search docs..." oninput="filterToc()">
+  </div>
+  <nav class="toc-nav">
+    <div class="toc-section">Overview</div>
+    <a class="toc-item" href="#introduction">Introduction</a>
+    <a class="toc-item" href="#architecture">Architecture</a>
+    <a class="toc-item" href="#mechanism">Scraping & Sentiment</a>
+    <div class="toc-section">Installation</div>
+    <a class="toc-item" href="#requirements">System Requirements</a>
+    <a class="toc-item" href="#deploy">Deployment</a>
+    <a class="toc-item" href="#nginx">Nginx Reverse Proxy</a>
+    <div class="toc-section">Usage</div>
+    <a class="toc-item" href="#how-to-use">How to Use</a>
+    <a class="toc-item" href="#scheduled">Scraping Terjadwal</a>
+    <div class="toc-section">Security</div>
+    <a class="toc-item" href="#security">Security Notes</a>
+    <div class="toc-section">Reference</div>
+    <a class="toc-item" href="#limitations">Limitations</a>
+    <a class="toc-item" href="#customization">Customization</a>
+    <a class="toc-item" href="#config">Configuration</a>
+  </nav>
+</aside>
+
+<!-- ═══════════════ CONTENT ═══════════════ -->
+<main class="content">
+  <div class="content-header">
+    <div class="breadcrumb"><a href="#">SentimentScope</a> / Documentation</div>
+    <h1>Documentation</h1>
+    <p class="desc">Analisis sentimen multi-platform dengan IndoBERT, dashboard real-time, dan insight bertenaga AI — self-hosted dan open source.</p>
+  </div>
+
+  <!-- ── Introduction ── -->
+  <section class="section" id="introduction">
+    <h2>Introduction</h2>
+    <p>SentimentScope adalah platform analisis sentimen self-hosted yang melakukan scraping opini publik dari <strong>6 platform social media</strong>, mengklasifikasikan dengan model transformer IndoBERT, mengkategorikan per topik domain, dan menampilkan hasil melalui dashboard interaktif dengan executive summary yang di-generate AI.</p>
+    <p>Dibangun dengan Streamlit, Plotly, HuggingFace Transformers, dan LLM API kompatibel OpenAI. Dirancang untuk self-service: tidak perlu interaksi terminal — semuanya berjalan dari web UI.</p>
+    
+    <div class="callout info">
+      <div class="body">
+        <strong>Open Source · Lisensi MIT</strong>
+        Bebas digunakan, dimodifikasi, dan di-deploy. Generic — bisa untuk domain, brand, atau topik apa saja.
+      </div>
+    </div>
+    
+    <h3>What It Does</h3>
+    <div class="spec-table">
+      <table>
+        <thead><tr><th>Kapasitas</th><th>Deskripsi</th></tr></thead>
+        <tbody>
+          <tr><td>Scraping Multi-Platform</td><td>Instagram, YouTube, Web news, Play Store, Facebook, TikTok</td></tr>
+          <tr><td>Klasifikasi Sentiment</td><td>Model IndoBERT (bisa diganti ke model HuggingFace lain)</td></tr>
+          <tr><td>Kategorisasi Domain</td><td>Klasifikasi topik berbasis keyword (dapat dikustomisasi)</td></tr>
+          <tr><td>Dashboard Interaktif</td><td>8 visualisasi dengan alert badges dan trend tracking</td></tr>
+          <tr><td>Panel AI Insight</td><td>Executive summary + rekomendasi via LLM</td></tr>
+          <tr><td>Export PDF</td><td>Laporan lengkap dengan chart + AI insight</td></tr>
+          <tr><td>Scraping Terjadwal</td><td>Scraping otomatis berbasis cron untuk monitoring tren</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- ── Architecture ── -->
+  <section class="section" id="architecture">
+    <h2>Architecture</h2>
+    <p>SentimentScope berjalan sebagai satu proses Streamlit. Scraper mengambil data dari API platform, model IndoBERT mengklasifikasikan sentimen secara lokal, dan LLM API meng-generate executive summary on demand.</p>
+    
+    <div class="code-block">
+      <div class="code-header"><span class="lang">Architecture</span><button class="copy-btn" onclick="copyCode(this)">copy</button></div>
+      <div class="code-body"><pre>┌─────────────────────────────────────────────────────┐
+│                 Nginx Reverse Proxy                  │
+│              /sentiment/ → :9120                     │
+└──────────────────────┬──────────────────────────────┘
+                       │
+┌──────────────────────▼──────────────────────────────┐
+│              Streamlit Process (:9120)               │
+│                                                      │
+│  ┌────────────┐  ┌──────────────┐  ┌─────────────┐ │
+│  │  Scrapers   │  │  IndoBERT    │  │  Dashboard   │ │
+│  │  (6 src)   │  │  Sentiment   │  │  (8 charts)  │ │
+│  └──────┬─────┘  └──────┬───────┘  └──────┬──────┘ │
+│         │               │                  │        │
+│  ┌──────▼───────────────▼──────────────────▼──────┐ │
+│  │              LLM API (OpenAI-compatible)        │ │
+│  │  Executive Summary · Recommendations · Chatbot │ │
+│  └────────────────────────────────────────────────┘ │
+│                                                      │
+│  Sumber Data:                                       │
+│  ├── Instagram   (instagrapi)                        │
+│  ├── YouTube     (youtube-comment-downloader)        │
+│  ├── Web News    (Bing RSS + trafilatura)            │
+│  ├── Play Store  (google-play-scraper)               │
+│  ├── Facebook    (facebook-scraper, cookie)          │
+│  └── TikTok     (TikTokApi + Playwright)             │
+│                                                      │
+│  Scheduled Scraper (cron, setiap 6 jam):                 │
+│  └── scheduled_scrape.py → hasil/scheduled_*.csv     │
+└──────────────────────────────────────────────────────┘</pre></div>
+    </div>
+  </section>
+
+  <!-- ── Mekanisme Scraping & Sentiment ── -->
+  <section class="section" id="mechanism">
+    <h2>Mekanisme Scraping & Sentiment</h2>
+    <p>Memahami cara SentimentScope mengumpulkan data dan mengklasifikasikan sentimen.</p>
+
+    <h3>Cara Kerja Scraping</h3>
+    <p>Setiap platform punya API dan struktur data berbeda. SentimentScope menggunakan library khusus per platform untuk mengambil komentar, review, atau artikel. Data yang diambil: <strong>source, text, author, date, likes, url</strong>.</p>
+    <p>Data <strong>tidak acak</strong> — tiap platform menggunakan urutan defaultnya sendiri:</p>
+
+    <div class="spec-table">
+      <table>
+        <thead><tr><th>Platform</th><th>Library</th><th>Sort Order</th><th>Auth</th><th>Time Filter?</th></tr></thead>
+        <tbody>
+          <tr><td>Instagram</td><td>instagrapi</td><td>Top posts dulu, recent fallback</td><td>Username + password</td><td>❌ Tidak</td></tr>
+          <tr><td>YouTube</td><td>youtube-comment-downloader</td><td>SORT_BY_RECENT (terbaru dulu)</td><td>Tidak perlu</td><td>❌ Tidak</td></tr>
+          <tr><td>Web News</td><td>Bing News RSS + trafilatura</td><td>Relevansi + recency Bing</td><td>Tidak perlu</td><td>❌ Tidak</td></tr>
+          <tr><td>Play Store</td><td>google-play-scraper</td><td>Sort.NEWEST (review terbaru)</td><td>Tidak perlu</td><td>❌ Tidak</td></tr>
+          <tr><td>Facebook</td><td>facebook-scraper</td><td>Recent posts</td><td>Session cookie</td><td>❌ Tidak</td></tr>
+          <tr><td>TikTok</td><td>TikTokApi + Playwright</td><td>Recent videos</td><td>ms_token</td><td>❌ Tidak</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="callout info">
+      <div class="body">
+        <strong>Tidak ada time range filter di scraper</strong>
+        API platform tidak mendukung filter tanggal saat scraping. Urutan ditentukan oleh algoritma platform (populer, terbaru, atau relevansi). Hasil adalah <strong>snapshot</strong> dari apa yang platform anggap paling relevan saat itu.
+      </div>
+    </div>
+
+    <h3>Alur Scraping per Platform</h3>
+
+    <h4>Instagram</h4>
+    <div class="code-block">
+      <div class="code-header"><span class="lang">flow</span><button class="copy-btn" onclick="copyCode(this)">copy</button></div>
+      <div class="code-body"><pre>1. Login via instagrapi (session / username+password)
+2. Search hashtag: #{keyword}
+3. Get top posts (hashtag_medias_top_v1)
+   └─ fallback: recent posts (hashtag_medias_recent_v1)
+4. Filter posts with comments > 0
+5. For each post (max 15 posts):
+   └─ Get comments (max 50 per post)
+   └─ Extract: text, author, date (UTC), likes, post URL
+6. Sleep 2s between posts (rate limit protection)</pre></div>
+    </div>
+
+    <h4>YouTube</h4>
+    <div class="code-block">
+      <div class="code-header"><span class="lang">flow</span><button class="copy-btn" onclick="copyCode(this)">copy</button></div>
+      <div class="code-body"><pre>1. Search: ytsearch8:{keyword} via yt_dlp
+   └─ fallback: via WARP proxy if direct fails
+2. Get top 8 videos
+3. For each video:
+   └─ Get comments sorted by SORT_BY_RECENT (newest first)
+   └─ Extract: text, author, date (timestamp), votes, video URL
+4. Stop when max_comments reached</pre></div>
+    </div>
+
+    <h4>Web News</h4>
+    <div class="code-block">
+      <div class="code-header"><span class="lang">flow</span><button class="copy-btn" onclick="copyCode(this)">copy</button></div>
+      <div class="code-body"><pre>1. Query Bing News RSS: https://www.bing.com/news/search?q={keyword}
+   └─ fallback: via WARP proxy
+2. Parse RSS feed (feedparser)
+3. For each article (max 3x target):
+   └─ Resolve Bing redirect → actual article URL
+   └─ Fetch HTML
+   └─ Extract text via trafilatura
+   └─ Skip if text < 200 chars
+   └─ Extract: text (max 3000 chars), source, date, URL</pre></div>
+    </div>
+
+    <h4>Play Store</h4>
+    <div class="code-block">
+      <div class="code-header"><span class="lang">flow</span><button class="copy-btn" onclick="copyCode(this)">copy</button></div>
+      <div class="code-body"><pre>1. Match keyword to configured app IDs (PLAYSTORE_APPS)
+   └─ If no match: search Play Store for keyword
+2. For each app:
+   └─ Get reviews sorted by Sort.NEWEST
+   └─ If keyword is not a known app: filter reviews by keyword
+   └─ Extract: text, author, date, thumbsUpCount, app URL
+3. Distribute max_comments across apps evenly</pre></div>
+    </div>
+
+    <h3>Cara Kerja Sentiment Analysis</h3>
+    <p>Setelah scraping, semua teks diklasifikasikan menggunakan model HuggingFace Transformers. Default: <code class="inline-code">w11wo/indonesian-roberta-base-sentiment-classifier</code> (IndoBERT).</p>
+
+    <div class="code-block">
+      <div class="code-header"><span class="lang">sentiment pipeline</span><button class="copy-btn" onclick="copyCode(this)">copy</button></div>
+      <div class="code-body"><pre>┌──────────────────────────────────────────────────────────┐
+│                  Klasifikasi Sentiment                  │
+│                                                            │
+│  Input:  scraped text (max 128 tokens, truncated)          │
+│  Model:  IndoBERT (Indonesian RoBERTa)                     │
+│  Output: label + confidence score                          │
+│                                                            │
+│  ┌──────────────────────────────────────────────────────┐ │
+│  │  Batch processing (16 texts per batch)                │ │
+│  │                                                       │ │
+│  │  text → tokenizer → RoBERTa → softmax → label+score  │ │
+│  │                                                       │ │
+│  │  Labels:  positive → "Positif"                         │ │
+│  │           neutral  → "Netral"                          │ │
+│  │           negative → "Negatif"                         │ │
+│  │                                                       │ │
+│  │  Score: 0.0 - 1.0 (confidence)                        │ │
+│  │  ≥0.6  → "yakin" (confident)                          │ │
+│  │  <0.6  → "ragu"  (uncertain, flagged)                 │ │
+│  └──────────────────────────────────────────────────────┘ │
+│                                                            │
+│  Post-processing:                                          │
+│  └── classify_df() → categorize into domain topics        │
+│      (Pelayanan, Klaim, Sistem Digital, etc.)             │
+└──────────────────────────────────────────────────────────┘</pre></div>
+    </div>
+
+    <div class="callout warn">
+      <div class="body">
+        <strong>Model Accuracy</strong>
+        IndoBERT mencapai akurasi ~85% untuk sentimen Bahasa Indonesia. Prediksi low-confidence (< 0.6) are flagged as "ragu" and may need manual review. For other languages, change SENTIMENT_MODEL di .env.
+      </div>
+    </div>
+
+    <h3>Kategorisasi Domain</h3>
+    <p>Setelah sentiment classification, teks dikategorikan ke topik domain menggunakan keyword matching di <code class="inline-code">categorize.py</code>. Kategori dapat dikustomisasi sesuai domain.</p>
+
+    <div class="code-block">
+      <div class="code-header"><span class="lang">categorize.py</span><button class="copy-btn" onclick="copyCode(this)">copy</button></div>
+      <div class="code-body"><pre>CATEGORIES = {
+    "Pelayanan":      ["layanan", "cs", "antri", "ramah", "kasar", ...],
+    "Klaim":          ["klaim", "pencairan", "ditolak", "berkas", ...],
+    "Sistem Digital": ["aplikasi", "login", "error", "bug", "down", ...],
+    "Produk":         ["produk", "jht", "manfaat", "premi", ...],
+    "Penipuan":       ["penipuan", "scam", "hoax", "palsu", ...],
+    # Edit CATEGORIES dict to match your domain
+}</pre></div>
+    </div>
+
+    <h3>GSS (Global Sentiment Score)</h3>
+    <p>Skor sentimen keseluruhan dalam skala 0-100:</p>
+    <div class="code-block">
+      <div class="code-header"><span class="lang">formula</span><button class="copy-btn" onclick="copyCode(this)">copy</button></div>
+      <div class="code-body"><pre>GSS = (Positif + 0.5 × Netral) / Total × 100
+
+Range:
+  0-40  → 🔴 Kritis (mayoritas negatif)
+  40-60 → 🟡 Netral
+  60-80 → 🟢 Baik
+  80-100→ 🟢 Sangat Baik</pre></div>
+    </div>
+
+    <h3>Deduplikasi Data</h3>
+    <p>Setelah semua source terkumpul, data di-dedupe berdasarkan <code class="inline-code">(source, text[:200].lower())</code> — komentar yang sama dari platform yang sama dihilangkan.</p>
+
+  </section>
+
+
+  <!-- ── System Requirements ── -->
+  <section class="section" id="requirements">
+    <h2>System Requirements</h2>
+    <div class="spec-table">
+      <table>
+        <thead><tr><th>Komponen</th><th>Requirement</th><th>Tipe</th></tr></thead>
+        <tbody>
+          <tr><td>OS</td><td>Linux (Ubuntu 22.04+ / Debian 12+ direkomendasikan)</td><td>Wajib</td></tr>
+          <tr><td>Python</td><td>3.10 or newer</td><td>Wajib</td></tr>
+          <tr><td>RAM</td><td>Minimum 2GB. 4GB+ direkomendasikan untuk model sentiment.</td><td>Wajib</td></tr>
+          <tr><td>Disk</td><td>500MB untuk instalasi. Scheduled scrape bertambah ~5MB/run.</td><td>Wajib</td></tr>
+          <tr><td>Nginx</td><td>Reverse proxy untuk HTTPS dan WebSocket support.</td><td>Wajib</td></tr>
+          <tr><td>Playwright</td><td>Browser Chromium untuk scraper TikTok.</td><td>Opsional</td></tr>
+          <tr><td>Fonts</td><td>Font DejaVuSans TTF untuk export PDF dan wordcloud.</td><td>Wajib</td></tr>
+        </tbody>
+      </table>
+    </div>
+    
+    <h3>Python Dependencies</h3>
+    <div class="code-block">
+      <div class="code-header"><span class="lang">requirements.txt</span><button class="copy-btn" onclick="copyCode(this)">copy</button></div>
+      <div class="code-body"><pre>streamlit>=1.30
+plotly>=5.0,<6
+transformers>=4.36
+torch
+pandas
+httpx
+kaleido==0.2.1
+fpdf2
+wordcloud
+matplotlib
+instagrapi
+youtube-comment-downloader
+trafilatura
+feedparser
+google-play-scraper
+facebook-scraper
+TikTokApi
+playwright</pre></div>
+    </div>
+  </section>
+
+  <!-- ── Deployment ── -->
+  <section class="section" id="deploy">
+    <h2>Deployment</h2>
+    <p>Panduan step-by-step deploy SentimentScope di server Linux.</p>
+    
+    <div class="step">
+      <div class="step-num">1</div>
+      <div class="step-body">
+        <h4>Clone repository</h4>
+        <div class="code-block">
+          <div class="code-header"><span class="lang">bash</span><button class="copy-btn" onclick="copyCode(this)">copy</button></div>
+          <div class="code-body"><pre>git clone https://github.com/yusufworkmail456-sys/sentiment-analysis.git
+cd sentiment-analysis</pre></div>
+        </div>
+      </div>
+    </div>
+    
+    <div class="step">
+      <div class="step-num">2</div>
+      <div class="step-body">
+        <h4>Buat virtualenv & install dependencies</h4>
+        <div class="code-block">
+          <div class="code-header"><span class="lang">bash</span><button class="copy-btn" onclick="copyCode(this)">copy</button></div>
+          <div class="code-body"><pre>python3 -m venv venv
+source venv/bin/activate
+pip install -r requirements.txt</pre></div>
+        </div>
+      </div>
+    </div>
+    
+    <div class="step">
+      <div class="step-num">3</div>
+      <div class="step-body">
+        <h4>Install Playwright (untuk scraper TikTok)</h4>
+        <div class="code-block">
+          <div class="code-header"><span class="lang">bash</span><button class="copy-btn" onclick="copyCode(this)">copy</button></div>
+          <div class="code-body"><pre>playwright install chromium</pre></div>
+        </div>
+      </div>
+    </div>
+    
+    <div class="step">
+      <div class="step-num">4</div>
+      <div class="step-body">
+        <h4>Download font</h4>
+        <div class="code-block">
+          <div class="code-header"><span class="lang">bash</span><button class="copy-btn" onclick="copyCode(this)">copy</button></div>
+          <div class="code-body"><pre>mkdir -p assets/fonts
+# On Debian/Ubuntu:
+cp /usr/share/fonts/truetype/dejavu/DejaVuSans.ttf assets/fonts/
+cp /usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf assets/fonts/</pre></div>
+        </div>
+      </div>
+    </div>
+    
+    <div class="step">
+      <div class="step-num">5</div>
+      <div class="step-body">
+        <h4>Konfigurasi environment</h4>
+        <div class="code-block">
+          <div class="code-header"><span class="lang">bash</span><button class="copy-btn" onclick="copyCode(this)">copy</button></div>
+          <div class="code-body"><pre>cp .env.example .env
+nano .env</pre></div>
+        </div>
+        <p>Set LLM endpoint, model name, API key, dan app branding. Lihat <a href="#config">Configuration</a> untuk detail.</p>
+      </div>
+    </div>
+    
+    <div class="step">
+      <div class="step-num">6</div>
+      <div class="step-body">
+        <h4>Buat systemd service</h4>
+        <div class="code-block">
+          <div class="code-header"><span class="lang">/etc/systemd/system/sentiment.service</span><button class="copy-btn" onclick="copyCode(this)">copy</button></div>
+          <div class="code-body"><pre>[Unit]
+Description=SentimentScope — Sentiment Analysis
+After=network.target
+
+[Service]
+Type=simple
+User=root
+WorkingDirectory=/opt/sentiment-analysis
+ExecStart=/opt/sentiment-analysis/venv/bin/streamlit run app.py \
+    --server.port 9120 \
+    --server.address 127.0.0.1 \
+    --server.headless true
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target</pre></div>
+        </div>
+      </div>
+    </div>
+    
+    <div class="step">
+      <div class="step-num">7</div>
+      <div class="step-body">
+        <h4>Enable & start service</h4>
+        <div class="code-block">
+          <div class="code-header"><span class="lang">bash</span><button class="copy-btn" onclick="copyCode(this)">copy</button></div>
+          <div class="code-body"><pre>systemctl daemon-reload
+systemctl enable --now sentiment
+systemctl status sentiment</pre></div>
+        </div>
+      </div>
+    </div>
+    
+    <div class="step">
+      <div class="step-num">8</div>
+      <div class="step-body">
+        <h4>Verifikasi</h4>
+        <div class="code-block">
+          <div class="code-header"><span class="lang">bash</span><button class="copy-btn" onclick="copyCode(this)">copy</button></div>
+          <div class="code-body"><pre>systemctl is-active sentiment
+curl http://localhost:9120
+journalctl -u sentiment -f</pre></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ── Nginx ── -->
+  <section class="section" id="nginx">
+    <h2>Nginx Reverse Proxy</h2>
+    <p>Konfigurasi Nginx untuk proxy request ke app Streamlit dengan WebSocket support.</p>
+    <div class="code-block">
+      <div class="code-header"><span class="lang">nginx</span><button class="copy-btn" onclick="copyCode(this)">copy</button></div>
+      <div class="code-body"><pre>location /sentiment/ {
+    proxy_pass http://127.0.0.1:9120/sentiment/;
+    proxy_http_version 1.1;
+    proxy_set_header Upgrade $http_upgrade;
+    proxy_set_header Connection "upgrade";
+    proxy_set_header Host $host;
+    proxy_set_header X-Real-IP $remote_addr;
+    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+    proxy_set_header X-Forwarded-Proto $scheme;
+    proxy_read_timeout 86400s;
+    proxy_buffering off;
+}</pre></div>
+    </div>
+  </section>
+
+  <!-- ── How to Use ── -->
+  <section class="section" id="how-to-use">
+    <h2>How to Use</h2>
+    <p>Aplikasi dirancang untuk self-service — tidak perlu interaksi terminal setelah deployment.</p>
+    
+    <div class="step">
+      <div class="step-num">1</div>
+      <div class="step-body">
+        <h4>Buka web app</h4>
+        <p>Buka URL deployment di browser.</p>
+      </div>
+    </div>
+    
+    <div class="step">
+      <div class="step-num">2</div>
+      <div class="step-body">
+        <h4>Konfigurasi kredensial (opsional)</h4>
+        <p>Klik "Kredensial Sumber Data" untuk masukkan kredensial platform:</p>
+        <div class="spec-table">
+          <table>
+            <thead><tr><th>Platform</th><th>Metode Auth</th><th>Perlu Login</th></tr></thead>
+            <tbody>
+              <tr><td>Instagram</td><td>Username + password</td><td>Ya</td></tr>
+              <tr><td>YouTube</td><td>None</td><td>Tidak</td></tr>
+              <tr><td>Web News</td><td>None</td><td>Tidak</td></tr>
+              <tr><td>Play Store</td><td>None</td><td>Tidak</td></tr>
+              <tr><td>Facebook</td><td>Session cookie (c_user, xs)</td><td>Ya</td></tr>
+              <tr><td>TikTok</td><td>ms_token</td><td>Ya</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+    
+    <div class="step">
+      <div class="step-num">3</div>
+      <div class="step-body">
+        <h4>Masukkan keyword & pilih sumber</h4>
+        <p>Masukkan keyword pencarian (nama brand, produk, topik). Toggle platform mana yang di-scrape. Set max komentar per sumber.</p>
+      </div>
+    </div>
+    
+    <div class="step">
+      <div class="step-num">4</div>
+      <div class="step-body">
+        <h4>Jalankan scrape</h4>
+        <p>Klik "Mulai Scrape + Analisis". Aplikasi scrape semua platform terpilih, jalankan klasifikasi sentiment IndoBERT, dan kategorikan per topik domain.</p>
+      </div>
+    </div>
+    
+    <div class="step">
+      <div class="step-num">5</div>
+      <div class="step-body">
+        <h4>Lihat dashboard</h4>
+        <p>Pindah ke tab Dashboard. 8 visualisasi dalam card:</p>
+        <ul>
+          <li><strong>GSS Score Gauge</strong> — Skor sentimen keseluruhan (0-100)</li>
+          <li><strong>Sentiment per Kategori</strong> — Positif vs negatif per category</li>
+          <li><strong>Persebaran per Sumber</strong> — Distribusi sentimen per platform</li>
+          <li><strong>Channel Scorecard</strong> — Ranking platform berdasarkan GSS</li>
+          <li><strong>Top Terms Negatif</strong> — Kata paling sering muncul di keluhan</li>
+          <li><strong>Viral Detection</strong> — Scatter plot post dengan engagement tinggi</li>
+          <li><strong>Tren Volume</strong> — Volume komentar bulanan dari waktu ke waktu</li>
+          <li><strong>Tren GSS</strong> — Tren skor sentimen dari waktu ke waktu</li>
+        </ul>
+      </div>
+    </div>
+    
+    <div class="step">
+      <div class="step-num">6</div>
+      <div class="step-body">
+        <h4>Generate AI insight</h4>
+        <p>Klik tombol "AI" (kanan atas) untuk buka panel AI Insight. Klik "Generate All AI Insights" untuk executive summary + rekomendasi strategis. Chat dengan AI untuk pertanyaan lanjutan.</p>
+      </div>
+    </div>
+    
+    <div class="step">
+      <div class="step-num">7</div>
+      <div class="step-body">
+        <h4>Export PDF</h4>
+        <p>Klik "Export PDF" di dashboard untuk download laporan lengkap dengan semua chart + AI insight.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ── Scraping Terjadwal ── -->
+  <section class="section" id="scheduled">
+    <h2>Scraping Terjadwal</h2>
+    <p>For trend monitoring, <code class="inline-code">scheduled_scrape.py</code> menjalankan scraping headless sesuai jadwal cron. Hasil disimpan ke <code class="inline-code">hasil/scheduled_*.csv</code> dan ditampilkan di card "Tren Historis" pada dashboard.</p>
+    
+    <div class="code-block">
+      <div class="code-header"><span class="lang">crontab</span><button class="copy-btn" onclick="copyCode(this)">copy</button></div>
+      <div class="code-body"><pre># Run every 6 hours
+0 */6 * * * cd /opt/sentiment-analysis && ./venv/bin/python3 scheduled_scrape.py \
+    --keyword "your-keyword" \
+    --yt 60 --web 8 --ps 60 \
+    >> /var/log/sentiment_cron.log 2>&1</pre></div>
+    </div>
+    
+    <div class="callout tip">
+      <div class="body">
+        <strong>Trend Tracking</strong>
+        Dashboard membaca semua file scheduled_*.csv dan menampilkan GSS dari waktu ke waktu. Setelah 2+ scheduled run, chart "Tren Historis" muncul otomatis.
+      </div>
+    </div>
+  </section>
+
+  <!-- ── Security ── -->
+  <section class="section" id="security">
+    <h2>Security Notes</h2>
+    
+    <div class="callout danger">
+      <div class="body">
+        <strong>Perlakukan kredensial seperti password</strong>
+        Facebook cookies dan TikTok ms_token memberikan akses penuh ke akun. Simpan dengan aman dan rotate secara berkala.
+      </div>
+    </div>
+    
+    <div class="info-card">
+      <h4>Penyimpanan Kredensial</h4>
+      <p class="card-desc">Kredensial platform disimpan secara lokal di <code class="inline-code">sessions/</code> sebagai file JSON. Tidak pernah meninggalkan server Anda.</p>
+    </div>
+    
+    <div class="info-card">
+      <h4>LLM API Key</h4>
+      <p class="card-desc">LLM API key dibaca dari environment variables atau <code class="inline-code">.env</code>. Never commit <code class="inline-code">.env</code> to git (it's in .gitignore).</p>
+    </div>
+    
+    <div class="info-card">
+      <h4>Tidak Ada Persistensi Data</h4>
+      <p class="card-desc">Data hasil scrape hanya ada di session browser saat ini. Refresh page akan menghapusnya. Scheduled scrape disimpan ke CSV untuk tracking tren.</p>
+    </div>
+    
+    <div class="info-card">
+      <h4>Tidak Ada Sharing Data Eksternal</h4>
+      <p class="card-desc">Komentar dikirim ke LLM API hanya untuk generate summary. Tidak ada analytics atau tracking pihak ketiga.</p>
+    </div>
+    
+    <div class="info-card">
+      <h4>Rate Limiting</h4>
+      <p class="card-desc">Perhatikan limit API platform. Gunakan nilai max yang wajar per sumber. Instagram sering butuh proxy.</p>
+    </div>
+  </section>
+
+  <!-- ── Limitations ── -->
+  <section class="section" id="limitations">
+    <h2>Limitations</h2>
+    
+    <h3>Limitasi API Platform</h3>
+    <div class="spec-table">
+      <table>
+        <thead><tr><th>Platform</th><th>Limitasi</th></tr></thead>
+        <tbody>
+          <tr><td>Instagram</td><td>Mungkin butuh proxy; sering kena rate-limit. Session kadaluarsa secara berkala.</td></tr>
+          <tr><td>YouTube</td><td>Jumlah komentar dibatasi oleh youtube-comment-downloader. Diurutkan terbaru.</td></tr>
+          <tr><td>Web News</td><td>Tergantung Bing News RSS + parsing artikel trafilatura.</td></tr>
+          <tr><td>Play Store</td><td>Terbatas pada review yang tersedia via google-play-scraper. Diurutkan terbaru.</td></tr>
+          <tr><td>Facebook</td><td>Berbasis cookie; bisa rusak saat Facebook mengubah struktur DOM.</td></tr>
+          <tr><td>TikTok</td><td>ms_token sering kadaluarsa; butuh Playwright/Chromium.</td></tr>
+        </tbody>
+      </table>
+    </div>
+    
+    <h3>Model Accuracy</h3>
+    <p>IndoBERT mencapai akurasi ~85% untuk sentimen Bahasa Indonesia. Prediksi low-confidence (< 0.6) ditandai "ragu". Untuk bahasa lain, ganti <code class="inline-code">SENTIMENT_MODEL</code> di .env.</p>
+    
+    <h3>Limitasi Lain</h3>
+    <ul>
+      <li><strong>No real-time monitoring</strong> — Ini adalah tool snapshot, bukan pipeline continuous.</li>
+      <li><strong>Single-user</strong> — Tidak dirancang untuk concurrent user. Setiap session independent.</li>
+      <li><strong>Trend visualization</strong> — Butuh data scrape punya timestamp valid. Tidak semua platform menyediakan timestamp yang reliable.</li>
+      <li><strong>LLM dependency</strong> — AI insight butuh LLM API endpoint yang berfungsi.</li>
+    </ul>
+  </section>
+
+  <!-- ── Customization ── -->
+  <section class="section" id="customization">
+    <h2>Customization</h2>
+    
+    <h3>Kategori Domain</h3>
+    <p>Edit <code class="inline-code">categorize.py</code> — modifikasi <code class="inline-code">CATEGORIES</code> dictionary:</p>
+    <div class="code-block">
+      <div class="code-header"><span class="lang">categorize.py</span><button class="copy-btn" onclick="copyCode(this)">copy</button></div>
+      <div class="code-body"><pre>CATEGORIES = {
+    "Customer Service": ["layanan", "cs", "antri", "ramah", "kasar", ...],
+    "Product": ["produk", "kualitas", "rusak", "garansi", ...],
+    "Pricing": ["harga", "mahal", "murah", "diskon", ...],
+}</pre></div>
+    </div>
+    
+    <h3>Play Store Apps</h3>
+    <p>Tambahkan app ID ke <code class="inline-code">.env</code>:</p>
+    <div class="code-block">
+      <div class="code-header"><span class="lang">.env</span><button class="copy-btn" onclick="copyCode(this)">copy</button></div>
+      <div class="code-body"><pre>PLAYSTORE_APP_1=com.yourcompany.app1
+PLAYSTORE_APP_2=com.yourcompany.app2</pre></div>
+    </div>
+    
+    <h3>Sentiment Model</h3>
+    <p>Ganti ke model HuggingFace apa saja:</p>
+    <div class="code-block">
+      <div class="code-header"><span class="lang">.env</span><button class="copy-btn" onclick="copyCode(this)">copy</button></div>
+      <div class="code-body"><pre># Model English
+SENTIMENT_MODEL=cardiffnlp/twitter-roberta-base-sentiment
+
+# Model Indonesia (default)
+SENTIMENT_MODEL=w11wo/indonesian-roberta-base-sentiment-classifier</pre></div>
+    </div>
+  </section>
+
+  <!-- ── Configuration ── -->
+  <section class="section" id="config">
+    <h2>Configuration</h2>
+    <p>Semua konfigurasi via environment variables atau <code class="inline-code">.env</code> file.</p>
+    <div class="spec-table">
+      <table>
+        <thead><tr><th>Variabel</th><th>Default</th><th>Deskripsi</th></tr></thead>
+        <tbody>
+          <tr><td>LLM_BASE_URL</td><td>http://localhost:11434/v1</td><td>Endpoint API kompatibel OpenAI</td></tr>
+          <tr><td>LLM_MODEL</td><td>gpt-3.5-turbo</td><td>Nama model untuk LLM</td></tr>
+          <tr><td>LLM_API_KEY</td><td>(empty)</td><td>API key (kosongkan untuk model lokal)</td></tr>
+          <tr><td>SENTIMENT_MODEL</td><td>w11wo/indonesian-roberta...</td><td>Model sentiment HuggingFace</td></tr>
+          <tr><td>APP_TITLE</td><td>Sentiment Analysis</td><td>Judul app di browser</td></tr>
+          <tr><td>APP_SUBTITLE</td><td>Multi-platform · IndoBERT...</td><td>Subtitle di bawah judul</td></tr>
+          <tr><td>IG_PROXY</td><td>(empty)</td><td>SOCKS5 proxy untuk Instagram</td></tr>
+          <tr><td>DOMAIN_STOPWORDS</td><td>(empty)</td><td>Kata dipisah koma untuk dikecualikan dari wordcloud</td></tr>
+          <tr><td>PLAYSTORE_APP_1</td><td>(empty)</td><td>Play Store app package ID</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <div style="margin-top:64px;padding-top:24px;border-top:1px solid var(--border);text-align:center;color:var(--muted-light);font-size:.82rem;">
+    <p>SentimentScope · <a href="https://github.com/yusufworkmail456-sys/sentiment-analysis">GitHub</a> · Lisensi MIT</p>
+  </div>
+
+</main>
+</div>
+
+<script>
+// ── Copy code button ──────────────────
+function copyCode(btn) {
+  const code = btn.closest('.code-block').querySelector('pre').textContent;
+  navigator.clipboard.writeText(code).then(() => {
+    const orig = btn.textContent;
+    btn.textContent = 'copied!';
+    setTimeout(() => { btn.textContent = orig; }, 1500);
+  });
+}
+
+// ── TOC active tracking ──────────────
+const tocItems = document.querySelectorAll('.toc-item');
+const sections = document.querySelectorAll('.section');
+
+function updateActiveToc() {
+  let current = '';
+  sections.forEach(s => {
+    const rect = s.getBoundingClientRect();
+    if (rect.top <= 100) current = s.id;
+  });
+  tocItems.forEach(item => {
+    item.classList.toggle('active', item.getAttribute('href') === '#' + current);
+  });
+}
+window.addEventListener('scroll', updateActiveToc);
+updateActiveToc();
+
+// ── TOC search filter ────────────────
+function filterToc() {
+  const q = document.getElementById('tocSearch').value.toLowerCase();
+  document.querySelectorAll('.toc-nav > *').forEach(el => {
+    if (el.classList.contains('toc-section')) {
+      el.style.display = '';
+    }
+    if (el.classList.contains('toc-item')) {
+      const match = el.textContent.toLowerCase().includes(q);
+      el.style.display = match ? '' : 'none';
+    }
+  });
+}
+
+// ── Smooth scroll with offset ────────
+tocItems.forEach(item => {
+  item.addEventListener('click', (e) => {
+    e.preventDefault();
+    const target = document.querySelector(item.getAttribute('href'));
+    if (target) {
+      const offset = 20;
+      const top = target.getBoundingClientRect().top + window.pageYOffset - offset;
+      window.scrollTo({ top, behavior: 'smooth' });
+    }
+  });
+});
+</script>
+
+</body>
+</html>

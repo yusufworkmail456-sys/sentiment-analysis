@@ -1,0 +1,98 @@
+{
+  "title": "Dokumentasi Sistem Sentiment Analysis Multi-Source",
+  "author": "Hermes Agent",
+  "elements": [
+    {"type": "heading", "text": "Hermes Agent + LINE Channel + Streamlit Sentiment Analysis", "level": 1},
+    {"type": "paragraph", "text": "VPS 69.5.22.24 - Domain publik: https://grumble-matchbook-dispersed.ngrok-free.dev - Versi: 23 September 2026"},
+    {"type": "heading", "text": "1. Ringkasan Sistem", "level": 2},
+    {"type": "paragraph", "text": "Sistem menganalisis sentimen publik terhadap sebuah keyword (contoh use case: taspen) dari tiga sumber sekaligus - Instagram, YouTube, dan web berita - lalu menyajikan hasilnya sebagai grafik interaktif dan CSV berlabel."},
+    {"type": "table", "header": ["Komponen", "Peran", "Teknologi"], "rows": [
+      ["Hermes Agent", "Otak sistem: gateway chat LINE, eksekusi pipeline, perawatan VPS", "Hermes Agent (Nous Research)"],
+      ["LINE Channel", "Antarmuka chat: kirim keyword/URL, terima hasil + link CSV", "LINE Messaging API"],
+      ["Streamlit App", "Antarmuka web: scrape + analisis mandiri, grafik, download CSV", "Streamlit + Plotly di VPS"]
+    ]},
+    {"type": "paragraph", "text": "Model sentimen: w11wo/indonesian-roberta-base-sentiment-classifier (IndoBERT, 3 label: Positif/Netral/Negatif), berjalan di CPU VPS."},
+    {"type": "heading", "text": "2. Diagram Arsitektur", "level": 2},
+    {"type": "image", "path": "/root/ig-sentiment/docs/diagram_arsitektur.png", "width": 460},
+    {"type": "paragraph", "text": "Kunci teknis: Instagram memblokir IP datacenter (VPS) - semua request IG dari VPS lewat Cloudflare WARP (SOCKS5 127.0.0.1:40000) supaya egress jadi IP Cloudflare, bukan IP VPS."},
+    {"type": "pagebreak"},
+    {"type": "heading", "text": "3. Komponen & Layanan di VPS", "level": 2},
+    {"type": "heading", "text": "3.1 Layanan systemd (semua auto-start saat boot)", "level": 3},
+    {"type": "table", "header": ["Layanan", "Tipe", "Port/Path", "Fungsi"], "rows": [
+      ["hermes-gateway", "user systemd", ":8646", "Gateway webhook LINE"],
+      ["hermes-dashboard", "user systemd", ":9119", "Dashboard Hermes"],
+      ["sentiment-ui", "user systemd", ":9120", "Streamlit sentiment app"],
+      ["ngrok-tunnel", "user systemd", "-", "Tunnel ke domain statis ngrok"],
+      ["nginx", "system systemd", ":80", "Router: /line/, /sentiment/, /files/"],
+      ["warp-svc", "system systemd", "SOCKS5 :40000", "Proxy egress IG"]
+    ]},
+    {"type": "heading", "text": "3.2 File penting di /root/ig-sentiment/", "level": 3},
+    {"type": "table", "header": ["File", "Fungsi"], "rows": [
+      ["multiscrape.py", "Scraper 3 sumber (IG/YouTube/Web) - dipakai Streamlit"],
+      ["app.py", "UI Streamlit"],
+      ["sentiment.py", "Labeling IndoBERT (CLI)"],
+      ["keyword_scrape.py", "Scraper IG by keyword (CLI, khusus IG)"],
+      ["run_pipeline.sh", "One-shot: URL post IG -> scrape+sentiment+LINE push"],
+      ["run_keyword_pipeline.sh", "One-shot: keyword -> LINE push"],
+      ["line_send.py", "Kirim pesan + host CSV ke LINE"],
+      ["summarize.py", "Ringkasan teks hasil"],
+      ["ig_session.json", "Sesi login IG (dibuat saat login)"],
+      ["hasil/", "CSV hasil (komentar + berlabel)"],
+      ["hf/", "Cache model IndoBERT (~500MB)"]
+    ]},
+    {"type": "heading", "text": "3.3 Konfigurasi nginx", "level": 3},
+    {"type": "table", "header": ["Snippet", "Route"], "rows": [
+      ["line-webhook.conf", "/line/ -> 127.0.0.1:8646"],
+      ["sentiment-ui.conf", "/sentiment/ -> 127.0.0.1:9120"],
+      ["ig-files.conf", "/files/ -> /var/www/ig-files, gate ?key=IG_FILES_KEY"]
+    ]},
+    {"type": "heading", "text": "3.3a Perawatan Rutin (referensi)", "level": 3},
+    {"type": "paragraph", "text": "Cek kesehatan: systemctl --user status hermes-gateway hermes-dashboard sentiment-ui ngrok-tunnel; systemctl status nginx warp-svc; curl health endpoint 127.0.0.1:9120/sentiment/ dan via ngrok."},
+    {"type": "paragraph", "text": "Popup 'Connection failed with status 404' di /sentiment/ = tunnel ngrok putus (BUKAN app mati). Cek: journalctl --user -u ngrok-tunnel --since '30 min ago'; uptime; free -m. Load tinggi + RAM penuh = penyebab klasik. Fix: systemctl --user restart ngrok-tunnel."},
+    {"type": "paragraph", "text": "Insiden 23 Sep 2026: VM 2GB tanpa swap + model IndoBERT (~700MB RSS) -> RAM habis -> load 25 -> ngrok reconnect timeout -> tunnel drop -> popup 404. Fix permanen terpasang: swap 2GB di /swapfile (persist di /etc/fstab) + vm.swappiness=10."},
+    {"type": "paragraph", "text": "IG gagal (LoginRequired) = sesi expired (terbukti bisa dalam hitungan jam). Login ulang via instagrapi + WARP, simpan ig_session.json. Setelah login, IG kirim notif 'unrecognized device' ke HP - abaikan, jangan tap 'bukan saya'. Challenge kode verifikasi: throttle IG aktif, tunggu 4+ menit antar percobaan."},
+    {"type": "paragraph", "text": "LINE bot tidak merespons: systemctl --user status hermes-gateway; journalctl --user -u hermes-gateway --since '30 min ago'."},
+    {"type": "pagebreak"},
+    {"type": "heading", "text": "4. Cara Pakai - Streamlit (via HP atau PC)", "level": 2},
+    {"type": "paragraph", "text": "1. Buka https://grumble-matchbook-dispersed.ngrok-free.dev/sentiment/ (browser minta password app sekali).\n2. Sidebar: isi Keyword (mis. taspen), atur slider jumlah per source (IG / YouTube / Web).\n3. Klik 'Mulai Scrape + Analisis'.\n4. Tunggu: scraping (menit) -> 'Memuat model' pertama kali ~1 menit (normal, jangan refresh) -> inference ~0.5-1 detik per komentar.\n5. Hasil: metrik total/positif/netral/negatif, pie chart, bar per source, tren per hari, contoh komentar teratas per label, preview 10 baris, tombol Download CSV."},
+    {"type": "paragraph", "text": "Kolom CSV: source, text, author, date, likes, url, label, score. Dari Chrome HP: menu -> Add to Home screen -> app terpasang seperti native."},
+    {"type": "heading", "text": "5. Cara Pakai - LINE Channel", "level": 2},
+    {"type": "paragraph", "text": "Via chat ke bot LINE (@749dqfbn): kirim URL post IG -> pipeline one-shot (scrape -> sentiment -> ringkasan + link CSV balik ke LINE). Kirim keyword (mis. 'scrape #taspen') -> pipeline keyword, hasil balik ke LINE."},
+    {"type": "paragraph", "text": "Via perintah di VPS (hasil push ke LINE):\n./run_pipeline.sh \"https://www.instagram.com/p/CODE/\" 100\n./run_keyword_pipeline.sh \"taspen\" 5 30"},
+    {"type": "paragraph", "text": "Catatan LINE: tidak bisa kirim attachment file - CSV selalu dikirim sebagai link download (hosting /files/, digate ?key=)."},
+    {"type": "heading", "text": "6. Cara Pakai - Hermes Agent", "level": 2},
+    {"type": "paragraph", "text": "Hermes di VPS mengoperasikan semuanya lewat chat: jalankan pipeline, cek layanan, login ulang IG, restart tunnel, perbaiki insiden. Contoh: 'scrape #taspen 5 postingan, kirim ke LINE', 'cek kenapa sentiment app 404', 'restart sentiment-ui'."},
+    {"type": "heading", "text": "7. Model Sentimen", "level": 2},
+    {"type": "table", "header": ["Aspek", "Detail"], "rows": [
+      ["Model", "w11wo/indonesian-roberta-base-sentiment-classifier"],
+      ["Label", "Positive / Neutral / Negative (tampil: Positif/Netral/Negatif)"],
+      ["Ukuran", "~500MB, cache di /root/ig-sentiment/hf"],
+      ["Kecepatan", "~0.5-1 detik per komentar (CPU 2-core, batch 16)"],
+      ["Kelemahan", "Slang ('mantab', 'goks') sering salah label skor rendah; skor < 0.6 = tidak pasti"]
+    ]},
+    {"type": "heading", "text": "8. Keamanan", "level": 2},
+    {"type": "table", "header": ["Hal", "Status"], "rows": [
+      ["Login IG", "Password tidak pernah disimpan; yang tersimpan hanya sesi (ig_session.json)"],
+      ["LINE credentials", "Di /root/.hermes/.env, tidak pernah masuk chat/log"],
+      ["CSV hasil", "Publik tapi digate ?key=IG_FILES_KEY"],
+      ["/sentiment/", "Saat ini TANPA password - direncanakan: basic auth nginx + form login IG di app"],
+      ["Egress IG", "Selalu via WARP (IP Cloudflare), bukan IP VPS"]
+    ]},
+    {"type": "heading", "text": "9. Batasan & Hal yang Perlu Diketahui", "level": 2},
+    {"type": "paragraph", "text": "- Sesi IG cepat expired (bisa hitungan jam) - login ulang sesekali.\n- Hashtag search IG wajib login; scraping komentar per-post bisa tanpa login (via WARP).\n- Web = isi artikel berita, bukan komentar (media Indonesia umumnya tak punya kolom komentar publik).\n- YouTube: komentar via yt-dlp + youtube-comment-downloader, tanpa API key.\n- X/Twitter & Facebook: tidak didukung (login wall, tidak reliable).\n- VM 2 core / 2GB RAM + swap 2GB: jangan jalankan dua analisis besar paralel; slider jangan langsung di-max.\n- Slang Indonesia: skor < 0.6 dianggap tidak pasti."},
+    {"type": "heading", "text": "10. Quick Reference", "level": 2},
+    {"type": "table", "header": ["Kebutuhan", "Perintah"], "rows": [
+      ["Cek semua layanan", "systemctl --user status hermes-gateway hermes-dashboard sentiment-ui ngrok-tunnel"],
+      ["Restart Streamlit", "systemctl --user restart sentiment-ui"],
+      ["Restart tunnel", "systemctl --user restart ngrok-tunnel"],
+      ["Cek WARP", "warp-cli status; curl -s --socks5-hostname 127.0.0.1:40000 ifconfig.me"],
+      ["Pipeline keyword -> LINE", "./run_keyword_pipeline.sh \"taspen\" 5 30"],
+      ["Pipeline URL -> LINE", "./run_pipeline.sh \"<url>\" 100"],
+      ["Sentiment CLI", "HF_HOME=/root/ig-sentiment/hf ./venv/bin/python sentiment.py --in komentar.csv --out berlabel.csv"],
+      ["Kirim file ke LINE", "./venv/bin/python line_send.py --to <userId> --text \"...\" --file <csv>"],
+      ["Log ngrok", "journalctl --user -u ngrok-tunnel --since \"30 min ago\""],
+      ["Log Streamlit", "journalctl --user -u sentiment-ui --since \"30 min ago\""]
+    ]},
+    {"type": "paragraph", "text": "Dokumentasi dibuat otomatis oleh Hermes Agent, 23 September 2026."}
+  ]
+}

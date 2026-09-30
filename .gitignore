@@ -1,0 +1,16 @@
+venv/
+sessions/
+hasil/
+__pycache__/
+*.pyc
+.env
+assets/fonts/
+/tmp/
+hf/
+*.log
+*.bak
+ig_session.json
+test_*.csv
+sentiment_*.log
+sentiment_multi_test.log
+.streamlit/
