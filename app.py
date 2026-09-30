@@ -501,7 +501,7 @@ st.caption("Multi-platform · IndoBERT · Taspen categorization · AI insight")
 
 # AI panel visibility: hidden (default) → narrow → wide
 _ai_state = st.session_state.get("ai_state", "hidden")  # hidden | narrow | wide
-_ai_btn_label = {"hidden": "AI", "narrow": "AI ⤢", "wide": "AI ⤡"}[_ai_state]
+_ai_btn_label = {"hidden": "AI", "narrow": "AI [>]", "wide": "AI [>>]"}[_ai_state]
 
 # Top bar: title area + AI toggle button
 _top1, _top2 = st.columns([10, 1])
@@ -541,17 +541,32 @@ with _main_area:
             with cred_c1:
                 st.markdown(f'{icon_text("instagram", "IG", 16, ic.C_PRIMARY, bold=True)} {_status_badge("instagram")}  ·  {icon_text("youtube", "YT", 16, ic.C_PRIMARY, bold=True)} {badge("OK", ic.C_SUCCESS)}', unsafe_allow_html=True)
                 ig_sess = _load_ig_session()
+                ig_sid_val = ig_sess.get("session_id", "")
+                ig_sid = st.text_input("IG session_id (cara terbaik)", key="ig_sid", value=ig_sid_val, label_visibility="collapsed", placeholder="IG session_id dari browser")
                 ig_user_val = ig_sess.get("username", "")
                 ig_user = st.text_input("IG username", key="ig_user", value=ig_user_val, label_visibility="collapsed", placeholder="IG username")
                 ig_pwd = st.text_input("IG password", type="password", key="ig_pwd", label_visibility="collapsed", placeholder="IG password")
                 if st.button("Simpan IG", key="save_ig", help="Simpan & login IG"):
-                    if ig_user.strip() and ig_pwd:
-                        save_session("instagram", {"username": ig_user.strip(), "password": ig_pwd})
+                    data = {}
+                    if ig_sid.strip():
+                        data["session_id"] = ig_sid.strip()
+                        os.environ["IG_SESSIONID"] = ig_sid.strip()
+                    if ig_user.strip():
+                        data["username"] = ig_user.strip()
                         os.environ["IG_USER"] = ig_user.strip()
+                    if ig_pwd:
+                        data["password"] = ig_pwd
                         os.environ["IG_PASS"] = ig_pwd
+                    if data:
+                        # Hapus session file lama
+                        from pathlib import Path as _P
+                        _sf = _P(__file__).parent / "ig_session.json"
+                        if _sf.exists():
+                            _sf.unlink()
+                        save_session("instagram", data)
                         st.rerun()
                     else:
-                        st.error("Username dan password wajib diisi.")
+                        st.error("Isi session_id atau username+password.")
 
             with cred_c2:
                 st.markdown(f'{icon_text("facebook", "FB", 16, ic.C_PRIMARY, bold=True)} {_status_badge("facebook")}  ·  {icon_text("tiktok", "TikTok", 16, ic.C_PRIMARY, bold=True)} {_status_badge("tiktok")}', unsafe_allow_html=True)
@@ -751,7 +766,7 @@ with _main_area:
                         "text": st.column_config.TextColumn("Teks", width="large"),
                         "author": st.column_config.TextColumn("Author"),
                         "likes": st.column_config.NumberColumn("Likes"),
-                        "url": st.column_config.LinkColumn("buka", display_text="↗"),
+                        "url": st.column_config.LinkColumn("buka", display_text="buka"),
                     })
                 csv_bytes = df.to_csv(index=False, encoding="utf-8").encode("utf-8")
                 fname = Path(out_csv).name if out_csv else "hasil.csv"
@@ -921,7 +936,7 @@ with _main_area:
 
             # === Data Table + Download ===
 
-            with st.expander("🗂️ Data + Filter"):
+            with st.expander("Data + Filter"):
                 f1, f2, f3, f4 = st.columns(4)
                 with f1:
                     sel_src = st.multiselect("Sumber", options=sorted(df["source"].unique()),
@@ -959,33 +974,33 @@ with _main_area:
                         "text": st.column_config.TextColumn("Teks", width="large"),
                         "author": st.column_config.TextColumn("Author"),
                         "likes": st.column_config.NumberColumn("Likes"),
-                        "url": st.column_config.LinkColumn("buka", display_text="↗"),
+                        "url": st.column_config.LinkColumn("buka", display_text="buka"),
                     })
                 csv_bytes = df.to_csv(index=False, encoding="utf-8").encode("utf-8")
                 fname = Path(st.session_state.get("out_csv", "hasil.csv")).name
-                st.download_button("⬇️ CSV", csv_bytes, file_name=fname, mime="text/csv", key="dl_csv2")
+                st.download_button("CSV", csv_bytes, file_name=fname, mime="text/csv", key="dl_csv2")
 
 # ================================================ AI INSIGHT PANEL (conditional)
 if _ai_area is not None:
     with _ai_area:
-        st.subheader("🤖 AI Insight")
+        st.subheader("AI Insight")
 
         df = st.session_state.get("df")
         meta = st.session_state.get("meta", {})
 
         if df is None or df.empty:
-            st.warning("⚠️ Jalankan analisis di tab Scrape dulu.")
+            st.warning("Jalankan analisis di tab Scrape dulu.")
         else:
-            if st.button("🚀 Generate All AI Insights", type="primary", use_container_width=True, key="btn_all"):
-                with st.spinner("🤔 Generating..."):
+            if st.button("Generate All AI Insights", type="primary", use_container_width=True, key="btn_all"):
+                with st.spinner("Generating..."):
                     try:
                         st.session_state["ai_summary"] = generate_executive_summary(df, meta)
                     except Exception as e:
-                        st.session_state["ai_summary"] = f"❌ {e}"
+                        st.session_state["ai_summary"] = f"Gagal: {e}"
                     try:
                         st.session_state["ai_reco"] = generate_recommendations(df, meta)
                     except Exception as e:
-                        st.session_state["ai_reco"] = f"❌ {e}"
+                        st.session_state["ai_reco"] = f"Gagal: {e}"
                 st.rerun()
 
             ai_summary = st.session_state.get("ai_summary")
@@ -993,12 +1008,12 @@ if _ai_area is not None:
 
             if ai_summary:
                 with st.container(border=True):
-                    st.markdown(f"<details open><summary>📝 <b>Executive Summary</b></summary>{ai_summary}</details>", unsafe_allow_html=True)
+                    st.markdown(f"<details open><summary>{icon('note', 14, ic.C_PRIMARY)} <b>Executive Summary</b></summary>{ai_summary}</details>", unsafe_allow_html=True)
             if ai_reco:
                 with st.container(border=True):
-                    st.markdown(f"<details open><summary>💡 <b>Consideration & Reco</b></summary>{ai_reco}</details>", unsafe_allow_html=True)
+                    st.markdown(f"<details open><summary>{icon('bulb', 14, ic.C_PRIMARY)} <b>Consideration & Reco</b></summary>{ai_reco}</details>", unsafe_allow_html=True)
             if not ai_summary and not ai_reco:
-                st.info("👆 Klik tombol di atas atau chat di bawah.")
+                st.info("Klik tombol di atas atau chat di bawah.")
 
             st.markdown("---")
 
@@ -1006,7 +1021,7 @@ if _ai_area is not None:
                 st.session_state["chat_messages"] = []
 
             kw_display = meta.get("keyword", "?")
-            st.caption(f"✅ {len(df)} data · keyword: {kw_display}")
+            st.caption(f"{len(df)} data · keyword: {kw_display}")
 
             chat_container = st.container()
             with chat_container:
@@ -1052,12 +1067,12 @@ if _ai_area is not None:
                     messages.append({"role": "user", "content": user_input})
 
                     with st.chat_message("assistant"):
-                        with st.spinner("🤔"):
+                        with st.spinner("Menjawab..."):
                             try:
                                 response = chat_completion_sync(messages, temperature=0.4, max_tokens=2000)
                                 st.markdown(response)
                             except Exception as e:
-                                response = f"❌ {e}"
+                                response = f"Gagal: {e}"
                                 st.error(response)
                     st.session_state["chat_messages"].append({"role": "assistant", "content": response})
                 st.rerun()

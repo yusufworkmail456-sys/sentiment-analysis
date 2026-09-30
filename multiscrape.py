@@ -54,7 +54,7 @@ def scrape_ig(keyword, max_comments=100, log=print):
         except Exception as e:
             log(f"IG: sesi tersimpan kadaluarsa ({type(e).__name__})")
     if not ok:
-        # Fallback 1: UI credential form (sessions/instagram.json)
+        # Fallback: UI credential form (sessions/instagram.json)
         ui_sess = {}
         try:
             from scrapers_extra import _load_session
@@ -63,7 +63,7 @@ def scrape_ig(keyword, max_comments=100, log=print):
                 ui_sess = s
         except Exception:
             pass
-        sid = os.environ.get("IG_SESSIONID")
+        sid = ui_sess.get("session_id") or os.environ.get("IG_SESSIONID")
         user = ui_sess.get("username") or os.environ.get("IG_USER")
         pwd = ui_sess.get("password") or os.environ.get("IG_PASS")
         try:
@@ -72,9 +72,9 @@ def scrape_ig(keyword, max_comments=100, log=print):
                 cl.get_timeline_feed()
                 cl.dump_settings(SESSION_FILE)
                 ok = True
-                log("IG: login via IG_SESSIONID ok")
-        except Exception:
-            pass
+                log("IG: login via session_id ok")
+        except Exception as e:
+            log(f"IG: session_id gagal: {type(e).__name__} {str(e)[:100]}")
         if not ok and user and pwd:
             try:
                 cl.login(user, pwd)
@@ -85,8 +85,9 @@ def scrape_ig(keyword, max_comments=100, log=print):
             except Exception as e:
                 log(f"IG: login user/pass gagal: {type(e).__name__} {str(e)[:100]}")
     if not ok:
-        raise RuntimeError("IG butuh login: buka 'Kredensial Sumber Data', "
-                           "isi IG username + password, klik Simpan IG")
+        raise RuntimeError("IG login gagal. Coba pakai session_id dari browser: "
+                           "login instagram.com → DevTools → Application → Cookies → "
+                           "copy nilai sessionid → paste di form IG")
 
     posts_needed = max(3, min(15, math.ceil(max_comments / 25) + 2))
     log(f"IG: cari postingan #{tag} (target {posts_needed} post) ...")
