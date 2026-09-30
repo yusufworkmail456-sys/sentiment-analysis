@@ -194,7 +194,8 @@ def scrape_playstore(keyword, max_comments=100, log=print):
 
     per_app = max(10, max_comments // max(len(apps_to_scrape), 1))
     total_collected = 0
-    is_known_app = any(an.lower() in keyword_lower for an, _ in PLAYSTORE_APPS.items())
+    is_known_app = any(keyword_lower in an.lower() or pkg in keyword_lower
+                      for an, pkg in PLAYSTORE_APPS.items())
 
     for app_name, pkg_id in apps_to_scrape:
         if total_collected >= max_comments:
