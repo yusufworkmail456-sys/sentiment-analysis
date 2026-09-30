@@ -30,7 +30,19 @@ def _http_get(url, proxy=False, timeout=25, **kw):
 
 # ---------------------------------------------------------------- Instagram
 def scrape_ig(keyword, max_comments=100, log=print):
-    """Komentar IG per hashtag. WAJIB login (ig_session.json / env)."""
+    """Komentar IG per hashtag. Pakai web API (session_id dari browser)."""
+    try:
+        from ig_web_scraper import scrape_ig as _scrape_ig_web
+        return _scrape_ig_web(keyword, max_comments, log)
+    except RuntimeError:
+        raise
+    except Exception as e:
+        log(f"IG: web scraper gagal ({type(e).__name__}), fallback ke instagrapi...")
+        return _scrape_ig_instagrapi(keyword, max_comments, log)
+
+
+def _scrape_ig_instagrapi(keyword, max_comments=100, log=print):
+    """Fallback: instagrapi (butuh ig_session.json atau user/pass)."""
     from instagrapi import Client
 
     tag = keyword.strip().lstrip("#").replace(" ", "").lower()
@@ -64,6 +76,10 @@ def scrape_ig(keyword, max_comments=100, log=print):
         except Exception:
             pass
         sid = ui_sess.get("session_id") or os.environ.get("IG_SESSIONID")
+        # Decode URL-encoded session_id (browser copies %3A instead of :)
+        if sid and "%" in sid:
+            import urllib.parse
+            sid = urllib.parse.unquote(sid)
         user = ui_sess.get("username") or os.environ.get("IG_USER")
         pwd = ui_sess.get("password") or os.environ.get("IG_PASS")
         try:
