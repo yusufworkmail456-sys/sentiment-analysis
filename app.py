@@ -708,7 +708,7 @@ with _main_area:
 
             with st.container(border=True):
                 for b in build_insights(df, exclude=kw_terms):
-                    st.markdown(f"- {b}")
+                    st.markdown(f"- {b}", unsafe_allow_html=True)
 
             pie_df = cnt.reindex(list(LABELS)).dropna().rename_axis("label").reset_index(name="n")
             fig = px.pie(pie_df, names="label", values="n", hole=0.55, color="label", color_discrete_map=LABEL_COLOR)
