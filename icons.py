@@ -1,4 +1,4 @@
-"""Custom SVG icon set for SentimentScope — uniform line-icon style.
+"""Custom SVG icon set for Sentimetter - uniform line-icon style.
 Matches docs theme: primary #3498db, ink #0b1120, text #1e293b.
 """
 import html as _html
@@ -82,7 +82,7 @@ def icon_text(name, text, size=18, color=None, text_color=None,
 
 
 def dot(color, size=10, label=None):
-    """Colored circle dot — replaces emoji dots."""
+    """Colored circle dot - replaces emoji dots."""
     lab = f'<span style="margin-left:4px;font-size:0.8rem;color:{C_TEXT};">{_html.escape(label)}</span>' if label else ''
     return (
         f'<span style="display:inline-flex;align-items:center;">'
