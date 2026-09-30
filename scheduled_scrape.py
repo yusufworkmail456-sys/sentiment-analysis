@@ -2,10 +2,10 @@
 """Scheduled scraper: run sentiment analysis on a schedule and save results.
 
 Usage:
-    python3 scheduled_scrape.py --keyword "taspen" --max 60
+    python3 scheduled_scrape.py --keyword "your-keyword" --max 60
 
 Results saved to hasil/ with timestamp. For trend tracking, run via cron:
-    0 */6 * * * cd /root/ig-sentiment && ./venv/bin/python3 scheduled_scrape.py --keyword "taspen" --max 60 >> /var/log/sentiment_cron.log 2>&1
+    0 */6 * * * cd /root/ig-sentiment && ./venv/bin/python3 scheduled_scrape.py --keyword "your-keyword" --max 60 >> /var/log/sentiment_cron.log 2>&1
 """
 import argparse
 import sys
@@ -20,7 +20,7 @@ sys.path.insert(0, str(Path(__file__).parent))
 from config import OUT_DIR, MODEL_NAME
 from multiscrape import dedupe, scrape_ig, scrape_web, scrape_yt
 from scrapers_extra import scrape_playstore
-from taspen_categorize import classify_df
+from categorize import classify_df
 from transformers import pipeline as hf_pipeline
 
 LABEL_ID = {"positive": "Positif", "neutral": "Netral", "negative": "Negatif"}

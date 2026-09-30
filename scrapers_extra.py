@@ -173,7 +173,7 @@ def scrape_playstore(keyword, max_comments=100, log=print):
         if app_name.lower() in keyword_lower or pkg in keyword_lower:
             apps_to_scrape.append((app_name, pkg))
 
-    # If no direct match, use all known Taspen apps
+    # If no direct match, use all known apps
     if not apps_to_scrape:
         if True:  # keyword-based matching removed for generic use
             apps_to_scrape = list(PLAYSTORE_APPS.items())

@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
-"""Streamlit UI: Sentiment Analysis Taspen — compact 2-column layout.
+"""Streamlit UI: Sentimetter - multi-platform sentiment analysis dashboard.
 
 Left:  Tabs [Scrape & Analisis (incl. credential mgmt), Dashboard]
-Right: AI Insight (exec summary + reco + chatbot) — sticky
+Right: AI Insight (exec summary + reco + chatbot) - sticky
 
 Jalankan: ./venv/bin/streamlit run app.py --server.port 9120 --server.address 127.0.0.1
 """
@@ -27,7 +27,7 @@ from scrapers_extra import (  # noqa: E402
     scrape_facebook, scrape_tiktok, scrape_playstore,
     save_session, check_session, test_facebook, test_tiktok,
 )
-from taspen_categorize import classify_df  # noqa: E402
+from categorize import classify_df  # noqa: E402
 from icons import icon, icon_text, dot, badge
 import icons as ic
 
@@ -90,13 +90,13 @@ SOURCE_ICON = {
     "instagram": "instagram", "youtube": "youtube", "web": "web",
     "facebook": "facebook", "tiktok": "tiktok", "playstore": "playstore",
 }
-TASPEN_STOPWORDS = {
+DOMAIN_STOPWORDS = {
     "taspen", "pensun", "pensiun", "pns", "asn", "pegawai", "negeri",
     "sipil", "badan", "usaha", "milik", "negara", "bumn",
 }
 FONT_PATH = str(Path(__file__).parent / "assets" / "fonts" / "DejaVuSans.ttf")
 
-st.set_page_config(page_title="Sentiment Taspen", layout="wide")
+st.set_page_config(page_title="Sentimetter", layout="wide")
 
 # === Compact theme ===
 st.markdown("""
@@ -244,7 +244,7 @@ def build_sentiment_context(df, meta):
     pct = {k: round(100*cnt.get(k,0)/total,1) for k in LABELS}
     skor = round(pct["Positif"]-pct["Negatif"],1)
     parts = [
-        f"=== KONTEKS SENTIMENT TASPEN ===",
+        f"=== KONTEKS SENTIMENT ===",
         f"Keyword: {meta.get('keyword','?')}", f"Total: {total}",
         f"Distribusi: P {pct['Positif']}% ({cnt.get('Positif',0)}), "
         f"N {pct['Netral']}% ({cnt.get('Netral',0)}), "
@@ -299,7 +299,7 @@ def generate_executive_summary(df, meta):
     context = build_sentiment_context(df, meta)
     messages = [
         {"role": "system", "content": (
-            "Kamu adalah Senior Sentiment Analyst untuk PT Taspen (Persero). "
+            "Kamu adalah Senior Sentiment Analyst. "
             "Buat EXECUTIVE SUMMARY untuk manajemen senior. "
             "Format: 2-3 paragraf, bahasa Indonesia formal-profesional. "
             "Struktur: (1) Ringkasan temuan + skor, (2) Kategori/area perlu perhatian, "
@@ -314,7 +314,7 @@ def generate_recommendations(df, meta):
     context = build_sentiment_context(df, meta)
     messages = [
         {"role": "system", "content": (
-            "Kamu adalah Strategic Advisor untuk PT Taspen (Persero). "
+            "Kamu adalah Strategic Advisor. "
             "Buat CONSIDERATION & RECOMMENDATION dari hasil sentiment. "
             "Format Bahasa Indonesia:\n## Consideration\n- 3-5 poin strategis\n"
             "## Recommendation\n- 3-5 rekomendasi actionable (specific, time-bound)\n"
@@ -432,7 +432,7 @@ def export_pdf(df, meta, ai_summary=None, ai_reco=None):
     # Cover page
     pdf.add_page()
     pdf.set_font("DejaVu", "B", 18)
-    pdf.cell(0, 15, "Sentiment Analysis Report - Taspen", new_x="LMARGIN", new_y="NEXT")
+    pdf.cell(0, 15, "Sentimetter — Sentiment Analysis Report", new_x="LMARGIN", new_y="NEXT")
     pdf.set_font("DejaVu", "", 11)
     pdf.ln(5)
     pdf.cell(0, 7, f"Keyword: {meta.get('keyword', '?')}", new_x="LMARGIN", new_y="NEXT")
@@ -496,8 +496,8 @@ def export_pdf(df, meta, ai_summary=None, ai_reco=None):
     with open(out_path, "rb") as f:
         return f.read()
 # ================================================================ MAIN
-st.markdown(f'<div style="display:flex;align-items:center;gap:8px;">{icon("chart", 28, ic.C_PRIMARY)}<h1 style="margin:0;">Sentiment Analysis — Taspen</h1></div>', unsafe_allow_html=True)
-st.caption("Multi-platform · IndoBERT · Taspen categorization · AI insight")
+st.markdown(f'<div style="display:flex;align-items:center;gap:8px;">{icon("chart", 28, ic.C_PRIMARY)}<h1 style="margin:0;">Sentimetter</h1></div>', unsafe_allow_html=True)
+st.caption("Multi-platform · IndoBERT · domain categorization · AI insight")
 
 # AI panel visibility: hidden (default) → narrow → wide
 _ai_state = st.session_state.get("ai_state", "hidden")  # hidden | narrow | wide
@@ -590,17 +590,17 @@ with _main_area:
 
             with cred_c3:
                 st.markdown(f'{icon_text("playstore", "Play Store", 16, ic.C_PRIMARY, bold=True)} {badge("OK", ic.C_SUCCESS)}  ·  {icon_text("web", "Web", 16, ic.C_PRIMARY, bold=True)} {badge("OK", ic.C_SUCCESS)}', unsafe_allow_html=True)
-                st.caption("Play Store & Web: tanpa login. Review app Andal/TASPEN Mobile/TASPEN Life otomatis.")
+                st.caption("Play Store & Web: tanpa login. Review app yang dikonfigurasi otomatis.")
 
         # --- Config & Run ---
         with st.expander("Konfigurasi", expanded=df is None):
-            p = st.pills("Contoh:", ["taspen", "klaim taspen", "dapen online", "pensiun pns"], key="kw_pills")
+            p = st.pills("Contoh:", ["gojek", "grab", "shopee", "tokopedia"], key="kw_pills")
             if p and p != st.session_state.get("kw_applied"):
                 st.session_state["kw_input"] = p
                 st.session_state["kw_applied"] = p
 
             keyword = st.text_input("Keyword", value="taspen", key="kw_input",
-                                    help="Contoh: taspen, klaim taspen, dapen online")
+                                    help="Contoh: nama brand, produk, atau topik")
 
             s1, s2, s3, s4, s5, s6 = st.columns(6)
             with s1:
@@ -851,7 +851,7 @@ with _main_area:
 
             with r1c2:
                 with st.container(border=True):
-                    st.markdown(f'<div class="ss-card-title">{icon("chart", 18, ic.C_PRIMARY)} Sentiment per Kategori</div><div class="ss-card-desc">Persentase positif vs negatif per kategori Taspen</div>', unsafe_allow_html=True)
+                    st.markdown(f'<div class="ss-card-title">{icon("chart", 18, ic.C_PRIMARY)} Sentiment per Kategori</div><div class="ss-card-desc">Persentase positif vs negatif per kategori domain</div>', unsafe_allow_html=True)
                     if "kategori" in df.columns:
                         absa_data = df.groupby(["kategori", "label"]).size().unstack(fill_value=0)
                         for lab in LABELS:
@@ -1056,7 +1056,7 @@ if _ai_area is not None:
 
                     context = build_sentiment_context(df, meta)
                     system_prompt = (
-                        "Kamu Sentiment Analysis Agent untuk PT Taspen (Persero). "
+                        "Kamu adalah Sentiment Analysis Agent. "
                         "Jawab pertanyaan user tentang hasil sentiment berdasarkan context. "
                         "Aturan: (1) jawab dari data, (2) jangan mengarang, (3) actionable, "
                         "(4) Bahasa Indonesia natural.\n\n" + context

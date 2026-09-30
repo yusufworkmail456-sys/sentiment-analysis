@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>SentimentScope — Documentation</title>
+<title>Sentimetter — Documentation</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
@@ -153,7 +153,7 @@ a:hover{text-decoration:underline}
       <path d="M8 18 L12 10 L16 14 L20 8" stroke="#fff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
       <circle cx="20" cy="8" r="2" fill="#fff"/>
     </svg>
-    <span class="logo-text">SentimentScope</span>
+    <span class="logo-text">Sentimetter</span>
     <span class="doc-badge">docs</span>
   </div>
   <div class="toc-search">
@@ -167,7 +167,7 @@ a:hover{text-decoration:underline}
     <div class="toc-section">Installation</div>
     <a class="toc-item" href="#requirements">System Requirements</a>
     <a class="toc-item" href="#deploy">Deployment</a>
-    <a class="toc-item" href="#nginx">Nginx Reverse Proxy</a>
+    <a class="toc-item" href="#nginx">Akses Web</a>
     <div class="toc-section">Usage</div>
     <a class="toc-item" href="#how-to-use">How to Use</a>
     <a class="toc-item" href="#scheduled">Scraping Terjadwal</a>
@@ -183,7 +183,7 @@ a:hover{text-decoration:underline}
 <!-- ═══════════════ CONTENT ═══════════════ -->
 <main class="content">
   <div class="content-header">
-    <div class="breadcrumb"><a href="#">SentimentScope</a> / Documentation</div>
+    <div class="breadcrumb"><a href="#">Sentimetter</a> / Documentation</div>
     <h1>Documentation</h1>
     <p class="desc">Analisis sentimen multi-platform dengan IndoBERT, dashboard real-time, dan insight bertenaga AI — self-hosted dan open source.</p>
   </div>
@@ -191,7 +191,7 @@ a:hover{text-decoration:underline}
   <!-- ── Introduction ── -->
   <section class="section" id="introduction">
     <h2>Introduction</h2>
-    <p>SentimentScope adalah platform analisis sentimen self-hosted yang melakukan scraping opini publik dari <strong>6 platform social media</strong>, mengklasifikasikan dengan model transformer IndoBERT, mengkategorikan per topik domain, dan menampilkan hasil melalui dashboard interaktif dengan executive summary yang di-generate AI.</p>
+    <p>Sentimetter adalah platform analisis sentimen self-hosted yang melakukan scraping opini publik dari <strong>6 platform social media</strong>, mengklasifikasikan dengan model transformer IndoBERT, mengkategorikan per topik domain, dan menampilkan hasil melalui dashboard interaktif dengan executive summary yang di-generate AI.</p>
     <p>Dibangun dengan Streamlit, Plotly, HuggingFace Transformers, dan LLM API kompatibel OpenAI. Dirancang untuk self-service: tidak perlu interaksi terminal — semuanya berjalan dari web UI.</p>
     
     <div class="callout info">
@@ -221,13 +221,13 @@ a:hover{text-decoration:underline}
   <!-- ── Architecture ── -->
   <section class="section" id="architecture">
     <h2>Architecture</h2>
-    <p>SentimentScope berjalan sebagai satu proses Streamlit. Scraper mengambil data dari API platform, model IndoBERT mengklasifikasikan sentimen secara lokal, dan LLM API meng-generate executive summary on demand.</p>
+    <p>Sentimetter berjalan sebagai satu proses Streamlit. Scraper mengambil data dari API platform, model IndoBERT mengklasifikasikan sentimen secara lokal, dan LLM API meng-generate executive summary on demand.</p>
     
     <div class="code-block">
       <div class="code-header"><span class="lang">Architecture</span><button class="copy-btn" onclick="copyCode(this)">copy</button></div>
       <div class="code-body"><pre>┌─────────────────────────────────────────────────────┐
 │                 Nginx Reverse Proxy                  │
-│              /sentiment/ → :9120                     │
+│              /sentimetter/ → :9120                    │
 └──────────────────────┬──────────────────────────────┘
                        │
 ┌──────────────────────▼──────────────────────────────┐
@@ -239,19 +239,19 @@ a:hover{text-decoration:underline}
 │  └──────┬─────┘  └──────┬───────┘  └──────┬──────┘ │
 │         │               │                  │        │
 │  ┌──────▼───────────────▼──────────────────▼──────┐ │
-│  │              LLM API (OpenAI-compatible)        │ │
+│  │        LLM API (any OpenAI-compatible)         │ │
 │  │  Executive Summary · Recommendations · Chatbot │ │
 │  └────────────────────────────────────────────────┘ │
 │                                                      │
 │  Sumber Data:                                       │
-│  ├── Instagram   (instagrapi)                        │
+│  ├── Instagram   (web API + session_id)              │
 │  ├── YouTube     (youtube-comment-downloader)        │
 │  ├── Web News    (Bing RSS + trafilatura)            │
 │  ├── Play Store  (google-play-scraper)               │
 │  ├── Facebook    (facebook-scraper, cookie)          │
 │  └── TikTok     (TikTokApi + Playwright)             │
 │                                                      │
-│  Scheduled Scraper (cron, setiap 6 jam):                 │
+│  Scheduled Scraper (cron, setiap 6 jam):             │
 │  └── scheduled_scrape.py → hasil/scheduled_*.csv     │
 └──────────────────────────────────────────────────────┘</pre></div>
     </div>
@@ -260,17 +260,17 @@ a:hover{text-decoration:underline}
   <!-- ── Mekanisme Scraping & Sentiment ── -->
   <section class="section" id="mechanism">
     <h2>Mekanisme Scraping & Sentiment</h2>
-    <p>Memahami cara SentimentScope mengumpulkan data dan mengklasifikasikan sentimen.</p>
+    <p>Memahami cara Sentimetter mengumpulkan data dan mengklasifikasikan sentimen.</p>
 
     <h3>Cara Kerja Scraping</h3>
-    <p>Setiap platform punya API dan struktur data berbeda. SentimentScope menggunakan library khusus per platform untuk mengambil komentar, review, atau artikel. Data yang diambil: <strong>source, text, author, date, likes, url</strong>.</p>
+    <p>Setiap platform punya API dan struktur data berbeda. Sentimetter menggunakan library khusus per platform untuk mengambil komentar, review, atau artikel. Data yang diambil: <strong>source, text, author, date, likes, url</strong>.</p>
     <p>Data <strong>tidak acak</strong> — tiap platform menggunakan urutan defaultnya sendiri:</p>
 
     <div class="spec-table">
       <table>
         <thead><tr><th>Platform</th><th>Library</th><th>Sort Order</th><th>Auth</th><th>Time Filter?</th></tr></thead>
         <tbody>
-          <tr><td>Instagram</td><td>instagrapi</td><td>Top posts dulu, recent fallback</td><td>Username + password</td><td>❌ Tidak</td></tr>
+          <tr><td>Instagram</td><td>instagrapi + web API</td><td>Top posts dulu, recent fallback</td><td>Session ID</td><td>❌ Tidak</td></tr>
           <tr><td>YouTube</td><td>youtube-comment-downloader</td><td>SORT_BY_RECENT (terbaru dulu)</td><td>Tidak perlu</td><td>❌ Tidak</td></tr>
           <tr><td>Web News</td><td>Bing News RSS + trafilatura</td><td>Relevansi + recency Bing</td><td>Tidak perlu</td><td>❌ Tidak</td></tr>
           <tr><td>Play Store</td><td>google-play-scraper</td><td>Sort.NEWEST (review terbaru)</td><td>Tidak perlu</td><td>❌ Tidak</td></tr>
@@ -292,15 +292,16 @@ a:hover{text-decoration:underline}
     <h4>Instagram</h4>
     <div class="code-block">
       <div class="code-header"><span class="lang">flow</span><button class="copy-btn" onclick="copyCode(this)">copy</button></div>
-      <div class="code-body"><pre>1. Login via instagrapi (session / username+password)
+      <div class="code-body"><pre>1. Login via session_id (web API)
+   └─ Ambil sessionid cookie dari browser
+   └─ Fallback: instagrapi (username + password)
 2. Search hashtag: #{keyword}
-3. Get top posts (hashtag_medias_top_v1)
-   └─ fallback: recent posts (hashtag_medias_recent_v1)
-4. Filter posts with comments > 0
-5. For each post (max 15 posts):
+3. Get posts from hashtag + timeline feed
+   └─ Filter posts with comments > 0
+4. For each post (max 15 posts):
    └─ Get comments (max 50 per post)
    └─ Extract: text, author, date (UTC), likes, post URL
-6. Sleep 2s between posts (rate limit protection)</pre></div>
+5. Sleep between posts (rate limit protection)</pre></div>
     </div>
 
     <h4>YouTube</h4>
@@ -454,12 +455,18 @@ facebook-scraper
 TikTokApi
 playwright</pre></div>
     </div>
+    <div class="callout info">
+      <div class="body">
+        <strong>LLM provider terpisah</strong>
+        Sentimetter tidak menyertakan LLM itu sendiri — ia memanggil API eksternal apa pun yang kompatibel OpenAI. Anda bebas memilih: OpenAI, Ollama, vLLM, LiteLLM, atau provider/router lain. Yang dibutuhkan: <code class="inline-code">base_url</code> + <code class="inline-code">api_key</code> di <code class="inline-code">.env</code>.
+      </div>
+    </div>
   </section>
 
   <!-- ── Deployment ── -->
   <section class="section" id="deploy">
     <h2>Deployment</h2>
-    <p>Panduan step-by-step deploy SentimentScope di server Linux.</p>
+    <p>Panduan step-by-step deploy Sentimetter di server Linux.</p>
     
     <div class="step">
       <div class="step-num">1</div>
@@ -520,7 +527,25 @@ cp /usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf assets/fonts/</pre></div
           <div class="code-body"><pre>cp .env.example .env
 nano .env</pre></div>
         </div>
-        <p>Set LLM endpoint, model name, API key, dan app branding. Lihat <a href="#config">Configuration</a> untuk detail.</p>
+        <p>Set <strong>LLM endpoint</strong> — provider apa pun yang kompatibel OpenAI (OpenAI, Ollama, vLLM, LiteLLM, router pilihan Anda, dll). Yang dibutuhkan hanyalah <code class="inline-code">base URL</code> + <code class="inline-code">API key</code>:</p>
+        <div class="code-block">
+          <div class="code-header"><span class="lang">.env</span><button class="copy-btn" onclick="copyCode(this)">copy</button></div>
+          <div class="code-body"><pre># Contoh 1 — OpenAI
+LLM_BASE_URL=https://api.openai.com/v1
+LLM_MODEL=gpt-4o-mini
+LLM_API_KEY=sk-...
+
+# Contoh 2 — Ollama lokal (tanpa API key)
+LLM_BASE_URL=http://localhost:11434/v1
+LLM_MODEL=llama3.1
+LLM_API_KEY=
+
+# Contoh 3 — provider/router lain
+LLM_BASE_URL=https://provider-anda.com/v1
+LLM_MODEL=nama-model-anda
+LLM_API_KEY=key-anda</pre></div>
+        </div>
+        <p>Lihat <a href="#config">Configuration</a> untuk semua opsi.</p>
       </div>
     </div>
     
@@ -531,14 +556,14 @@ nano .env</pre></div>
         <div class="code-block">
           <div class="code-header"><span class="lang">/etc/systemd/system/sentiment.service</span><button class="copy-btn" onclick="copyCode(this)">copy</button></div>
           <div class="code-body"><pre>[Unit]
-Description=SentimentScope — Sentiment Analysis
+Description=Sentimetter
 After=network.target
 
 [Service]
 Type=simple
 User=root
-WorkingDirectory=/opt/sentiment-analysis
-ExecStart=/opt/sentiment-analysis/venv/bin/streamlit run app.py \
+WorkingDirectory=/opt/sentimetter
+ExecStart=/opt/sentimetter/venv/bin/streamlit run app.py \
     --server.port 9120 \
     --server.address 127.0.0.1 \
     --server.headless true
@@ -580,12 +605,36 @@ journalctl -u sentiment -f</pre></div>
 
   <!-- ── Nginx ── -->
   <section class="section" id="nginx">
-    <h2>Nginx Reverse Proxy</h2>
-    <p>Konfigurasi Nginx untuk proxy request ke app Streamlit dengan WebSocket support.</p>
+    <h2>Akses Web</h2>
+    <p>Sentimetter dapat diakses dengan dua cara — pilih sesuai kebutuhan.</p>
+
+    <h3>Opsi A — IP Publik (simplest)</h3>
+    <p>Jalankan Streamlit langsung di <code class="inline-code">0.0.0.0</code> agar dapat diakses dari IP publik. Tidak butuh domain atau Nginx.</p>
+    <div class="code-block">
+      <div class="code-header"><span class="lang">systemd</span><button class="copy-btn" onclick="copyCode(this)">copy</button></div>
+      <div class="code-body"><pre>ExecStart=/opt/sentimetter/venv/bin/streamlit run app.py \
+    --server.port 9120 \
+    --server.address 0.0.0.0 \
+    --server.headless true</pre></div>
+    </div>
+    <p>Akses di <code class="inline-code">http://SERVER_IP:9120</code>. Buka port di firewall jika perlu:</p>
+    <div class="code-block">
+      <div class="code-header"><span class="lang">bash</span><button class="copy-btn" onclick="copyCode(this)">copy</button></div>
+      <div class="code-body"><pre>ufw allow 9120/tcp</pre></div>
+    </div>
+    <div class="callout warn">
+      <div class="body">
+        <strong>Tanpa HTTPS</strong>
+        Opsi ini tidak menggunakan HTTPS. Akses langsung cocok untuk eksplorasi/testing di jaringan terpercaya. Untuk produksi, gunakan Nginx + domain (Opsi B).
+      </div>
+    </div>
+
+    <h3>Opsi B — Domain + Nginx Reverse Proxy (recommended)</h3>
+    <p>Konfigurasi Nginx untuk proxy request ke app Streamlit dengan WebSocket support + HTTPS.</p>
     <div class="code-block">
       <div class="code-header"><span class="lang">nginx</span><button class="copy-btn" onclick="copyCode(this)">copy</button></div>
-      <div class="code-body"><pre>location /sentiment/ {
-    proxy_pass http://127.0.0.1:9120/sentiment/;
+      <div class="code-body"><pre>location /sentimetter/ {
+    proxy_pass http://127.0.0.1:9120/sentimetter/;
     proxy_http_version 1.1;
     proxy_set_header Upgrade $http_upgrade;
     proxy_set_header Connection "upgrade";
@@ -597,6 +646,7 @@ journalctl -u sentiment -f</pre></div>
     proxy_buffering off;
 }</pre></div>
     </div>
+    <p>Untuk HTTPS, gunakan <code class="inline-code">certbot --nginx</code> dengan domain Anda.</p>
   </section>
 
   <!-- ── How to Use ── -->
@@ -621,7 +671,7 @@ journalctl -u sentiment -f</pre></div>
           <table>
             <thead><tr><th>Platform</th><th>Metode Auth</th><th>Perlu Login</th></tr></thead>
             <tbody>
-              <tr><td>Instagram</td><td>Username + password</td><td>Ya</td></tr>
+              <tr><td>Instagram</td><td>Session ID (cookie)</td><td>Ya</td></tr>
               <tr><td>YouTube</td><td>None</td><td>Tidak</td></tr>
               <tr><td>Web News</td><td>None</td><td>Tidak</td></tr>
               <tr><td>Play Store</td><td>None</td><td>Tidak</td></tr>
@@ -692,10 +742,10 @@ journalctl -u sentiment -f</pre></div>
     <div class="code-block">
       <div class="code-header"><span class="lang">crontab</span><button class="copy-btn" onclick="copyCode(this)">copy</button></div>
       <div class="code-body"><pre># Run every 6 hours
-0 */6 * * * cd /opt/sentiment-analysis && ./venv/bin/python3 scheduled_scrape.py \
+0 */6 * * * cd /opt/sentimetter && ./venv/bin/python3 scheduled_scrape.py \
     --keyword "your-keyword" \
     --yt 60 --web 8 --ps 60 \
-    >> /var/log/sentiment_cron.log 2>&1</pre></div>
+    >> /var/log/sentimetter_cron.log 2>&1</pre></div>
     </div>
     
     <div class="callout tip">
@@ -817,22 +867,21 @@ SENTIMENT_MODEL=w11wo/indonesian-roberta-base-sentiment-classifier</pre></div>
       <table>
         <thead><tr><th>Variabel</th><th>Default</th><th>Deskripsi</th></tr></thead>
         <tbody>
-          <tr><td>LLM_BASE_URL</td><td>http://localhost:11434/v1</td><td>Endpoint API kompatibel OpenAI</td></tr>
-          <tr><td>LLM_MODEL</td><td>gpt-3.5-turbo</td><td>Nama model untuk LLM</td></tr>
-          <tr><td>LLM_API_KEY</td><td>(empty)</td><td>API key (kosongkan untuk model lokal)</td></tr>
+          <tr><td>LLM_BASE_URL</td><td>http://localhost:11434/v1</td><td>Base URL API kompatibel OpenAI (provider apa pun)</td></tr>
+          <tr><td>LLM_MODEL</td><td>gpt-3.5-turbo</td><td>Nama model (sesuai provider Anda)</td></tr>
+          <tr><td>LLM_API_KEY</td><td>(empty)</td><td>API key (kosongkan untuk model lokal tanpa auth)</td></tr>
           <tr><td>SENTIMENT_MODEL</td><td>w11wo/indonesian-roberta...</td><td>Model sentiment HuggingFace</td></tr>
-          <tr><td>APP_TITLE</td><td>Sentiment Analysis</td><td>Judul app di browser</td></tr>
+          <tr><td>APP_TITLE</td><td>Sentimetter</td><td>Judul app di browser</td></tr>
           <tr><td>APP_SUBTITLE</td><td>Multi-platform · IndoBERT...</td><td>Subtitle di bawah judul</td></tr>
           <tr><td>IG_PROXY</td><td>(empty)</td><td>SOCKS5 proxy untuk Instagram</td></tr>
-          <tr><td>DOMAIN_STOPWORDS</td><td>(empty)</td><td>Kata dipisah koma untuk dikecualikan dari wordcloud</td></tr>
-          <tr><td>PLAYSTORE_APP_1</td><td>(empty)</td><td>Play Store app package ID</td></tr>
+          <tr><td>PLAYSTORE_APP_1..N</td><td>(empty)</td><td>Play Store app package IDs</td></tr>
         </tbody>
       </table>
     </div>
   </section>
 
   <div style="margin-top:64px;padding-top:24px;border-top:1px solid var(--border);text-align:center;color:var(--muted-light);font-size:.82rem;">
-    <p>SentimentScope · <a href="https://github.com/yusufworkmail456-sys/sentiment-analysis">GitHub</a> · Lisensi MIT</p>
+    <p>Sentimetter · <a href="https://github.com/yusufworkmail456-sys/sentiment-analysis">GitHub</a> · Lisensi MIT</p>
   </div>
 
 </main>

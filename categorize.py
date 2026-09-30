@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
-"""Content categorization module.
-Classify comments into domain-relevant categories via keyword matching.
-Categories are configurable — edit CATEGORIES dict to match your domain.
+"""Modul kategorisasi konten domain.
+Classify comments into relevant domain categories via keyword matching + LLM fallback.
 """
 import re
 
@@ -64,7 +63,7 @@ NEG_INDICATORS = [
 
 
 def classify_text(text, llm_classify=None):
-    """Classify a single text into a Taspen category.
+    """Classify a single text into a domain category.
     
     Args:
         text: comment text

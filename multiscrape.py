@@ -3,7 +3,7 @@
 
 Skema baris: source, text, author, date, likes, url
 Pakai:
-  ./venv/bin/python multiscrape.py --keyword taspen --ig 50 --yt 50 --web 8 --out multi.csv
+  ./venv/bin/python multiscrape.py --keyword "your-keyword" --ig 50 --yt 50 --web 8 --out multi.csv
 """
 import argparse
 import csv

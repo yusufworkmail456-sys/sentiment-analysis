@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Configuration for Sentiment Analysis app.
+"""Configuration for Sentimetter - multi-platform sentiment analysis.
 
 All sensitive/environment-specific values are read from environment variables.
 Copy .env.example to .env and fill in your values.
@@ -37,16 +37,17 @@ APP_SUBTITLE = os.environ.get("APP_SUBTITLE",
     "Multi-platform · IndoBERT · AI insight")
 
 # === Play Store apps to scrape (configurable) ===
-# Format: {"App Name": "com.app.id"}
+# Format: {env var name: display fallback}
+# Set PLAYSTORE_APP_1..N in .env with your app package IDs
 PLAYSTORE_APPS = {
-    "Daily TASPEN": os.environ.get("PLAYSTORE_APP_1", ""),
-    "my taspen LIFE": os.environ.get("PLAYSTORE_APP_2", ""),
-    "New Taspen Easy": os.environ.get("PLAYSTORE_APP_3", ""),
-    "Taspen Easy": os.environ.get("PLAYSTORE_APP_4", ""),
-    "PAOS": os.environ.get("PLAYSTORE_APP_5", ""),
+    os.environ.get("PLAYSTORE_APP_1", ""): os.environ.get("PLAYSTORE_APP_1", ""),
+    os.environ.get("PLAYSTORE_APP_2", ""): os.environ.get("PLAYSTORE_APP_2", ""),
+    os.environ.get("PLAYSTORE_APP_3", ""): os.environ.get("PLAYSTORE_APP_3", ""),
+    os.environ.get("PLAYSTORE_APP_4", ""): os.environ.get("PLAYSTORE_APP_4", ""),
+    os.environ.get("PLAYSTORE_APP_5", ""): os.environ.get("PLAYSTORE_APP_5", ""),
 }
 # Remove empty entries
-PLAYSTORE_APPS = {k: v for k, v in PLAYSTORE_APPS.items() if v}
+PLAYSTORE_APPS = {k: v for k, v in PLAYSTORE_APPS.items() if k}
 
 def load_env():
     """Load .env file if it exists."""
