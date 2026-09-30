@@ -978,17 +978,18 @@ if _ai_area is not None:
                         st.markdown(msg["content"])
 
             quick_prompts = {
-                "📊 Ringkasan sentimen": "Beri ringkasan singkat hasil sentiment ini.",
-                "🔴 Kenapa banyak negatif?": "Analisis kenapa sentimen negatif tinggi. Keluhan utama?",
-                "💡 Rekomendasi": "Beri rekomendasi actionable berdasarkan hasil sentiment ini.",
-                "📈 Tren per sumber": "Bagaimana perbandingan sentimen antar sumber?",
+                "Ringkasan sentimen": "Beri ringkasan singkat hasil sentiment ini.",
+                "Kenapa banyak negatif?": "Analisis kenapa sentimen negatif tinggi. Keluhan utama?",
+                "Rekomendasi": "Beri rekomendasi actionable berdasarkan hasil sentiment ini.",
+                "Tren per sumber": "Bagaimana perbandingan sentimen antar sumber?",
             }
+            _reset_sel = st.session_state.pop("_reset_quick", False)
             sel_prompt = st.selectbox("Quick prompt", options=list(quick_prompts.keys()),
                                        key="quick_sel", label_visibility="collapsed",
                                        index=None, placeholder="Pilih quick prompt...")
             if sel_prompt:
                 st.session_state["pending_input"] = quick_prompts[sel_prompt]
-                st.session_state["quick_sel"] = None
+                st.session_state["_reset_quick"] = True
                 st.rerun()
 
             user_input = st.chat_input("Tanya tentang hasil...", key="chat_input")
