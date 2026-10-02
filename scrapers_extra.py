@@ -175,18 +175,19 @@ def scrape_playstore(keyword, max_comments=100, log=print):
 
     # If no direct match, use all known apps
     if not apps_to_scrape:
-        if True:  # keyword-based matching removed for generic use
+        if PLAYSTORE_APPS:  # apps configured -> use them
             apps_to_scrape = list(PLAYSTORE_APPS.items())
         else:
-            # Search Play Store for the keyword
+            # No apps configured -> search Play Store for the keyword
             try:
                 search_results = search(keyword.strip(), n_hits=5, lang="id", country="id")
                 for r in search_results:
-                    apps_to_scrape.append((r.get("title", r.get("appName", "?")), r["appId"]))
+                    app_id = r.get("appId")
+                    if app_id:
+                        apps_to_scrape.append((r.get("title", r.get("appName", "?")), app_id))
                 log(f"Play Store: search '{keyword}' -> {len(apps_to_scrape)} apps")
             except Exception as e:
                 log(f"Play Store: search gagal: {str(e)[:80]}")
-                apps_to_scrape = list(PLAYSTORE_APPS.items())
 
     if not apps_to_scrape:
         log("Play Store: tidak ada app ditemukan")

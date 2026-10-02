@@ -227,7 +227,7 @@ a:hover{text-decoration:underline}
       <div class="code-header"><span class="lang">Architecture</span><button class="copy-btn" onclick="copyCode(this)">copy</button></div>
       <div class="code-body"><pre>┌─────────────────────────────────────────────────────┐
 │                 Nginx Reverse Proxy                  │
-│              /sentimetter/ → :9120                    │
+│              / → :9120                    │
 └──────────────────────┬──────────────────────────────┘
                        │
 ┌──────────────────────▼──────────────────────────────┐
@@ -488,7 +488,10 @@ cd sentiment-analysis</pre></div>
           <div class="code-header"><span class="lang">bash</span><button class="copy-btn" onclick="copyCode(this)">copy</button></div>
           <div class="code-body"><pre>python3 -m venv venv
 source venv/bin/activate
-pip install -r requirements.txt</pre></div>
+pip install -r requirements.txt
+
+# CPU-only server? Install torch first to skip CUDA:
+# pip install torch --index-url https://download.pytorch.org/whl/cpu</pre></div>
         </div>
       </div>
     </div>
@@ -562,8 +565,9 @@ After=network.target
 [Service]
 Type=simple
 User=root
-WorkingDirectory=/opt/sentimetter
-ExecStart=/opt/sentimetter/venv/bin/streamlit run app.py \
+WorkingDirectory=/opt/sentiment-analysis
+Environment=HF_HOME=/opt/sentiment-analysis/hf
+ExecStart=/opt/sentiment-analysis/venv/bin/streamlit run app.py \
     --server.port 9120 \
     --server.address 127.0.0.1 \
     --server.headless true
@@ -583,7 +587,7 @@ WantedBy=multi-user.target</pre></div>
         <div class="code-block">
           <div class="code-header"><span class="lang">bash</span><button class="copy-btn" onclick="copyCode(this)">copy</button></div>
           <div class="code-body"><pre>systemctl daemon-reload
-systemctl enable --now sentiment
+systemctl enable --now sentiment-analysis
 systemctl status sentiment</pre></div>
         </div>
       </div>
@@ -595,7 +599,7 @@ systemctl status sentiment</pre></div>
         <h4>Verifikasi</h4>
         <div class="code-block">
           <div class="code-header"><span class="lang">bash</span><button class="copy-btn" onclick="copyCode(this)">copy</button></div>
-          <div class="code-body"><pre>systemctl is-active sentiment
+          <div class="code-body"><pre>systemctl is-active sentiment-analysis
 curl http://localhost:9120
 journalctl -u sentiment -f</pre></div>
         </div>
@@ -612,7 +616,7 @@ journalctl -u sentiment -f</pre></div>
     <p>Jalankan Streamlit langsung di <code class="inline-code">0.0.0.0</code> agar dapat diakses dari IP publik. Tidak butuh domain atau Nginx.</p>
     <div class="code-block">
       <div class="code-header"><span class="lang">systemd</span><button class="copy-btn" onclick="copyCode(this)">copy</button></div>
-      <div class="code-body"><pre>ExecStart=/opt/sentimetter/venv/bin/streamlit run app.py \
+      <div class="code-body"><pre>ExecStart=/opt/sentiment-analysis/venv/bin/streamlit run app.py \
     --server.port 9120 \
     --server.address 0.0.0.0 \
     --server.headless true</pre></div>
@@ -633,8 +637,8 @@ journalctl -u sentiment -f</pre></div>
     <p>Konfigurasi Nginx untuk proxy request ke app Streamlit dengan WebSocket support + HTTPS.</p>
     <div class="code-block">
       <div class="code-header"><span class="lang">nginx</span><button class="copy-btn" onclick="copyCode(this)">copy</button></div>
-      <div class="code-body"><pre>location /sentimetter/ {
-    proxy_pass http://127.0.0.1:9120/sentimetter/;
+      <div class="code-body"><pre>location / {
+    proxy_pass http://127.0.0.1:9120/;
     proxy_http_version 1.1;
     proxy_set_header Upgrade $http_upgrade;
     proxy_set_header Connection "upgrade";
@@ -742,10 +746,10 @@ journalctl -u sentiment -f</pre></div>
     <div class="code-block">
       <div class="code-header"><span class="lang">crontab</span><button class="copy-btn" onclick="copyCode(this)">copy</button></div>
       <div class="code-body"><pre># Run every 6 hours
-0 */6 * * * cd /opt/sentimetter && ./venv/bin/python3 scheduled_scrape.py \
+0 */6 * * * cd /opt/sentiment-analysis && ./venv/bin/python3 scheduled_scrape.py \
     --keyword "your-keyword" \
     --yt 60 --web 8 --ps 60 \
-    >> /var/log/sentimetter_cron.log 2>&1</pre></div>
+    >> /var/log/sentiment-analysis_cron.log 2>&1</pre></div>
     </div>
     
     <div class="callout tip">

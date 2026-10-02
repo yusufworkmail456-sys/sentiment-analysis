@@ -28,6 +28,7 @@ from scrapers_extra import (  # noqa: E402
     save_session, check_session, test_facebook, test_tiktok,
 )
 from categorize import classify_df  # noqa: E402
+import config  # noqa: E402
 from icons import icon, icon_text, dot, badge
 import icons as ic
 
@@ -43,29 +44,15 @@ try:
 except Exception:
     pass
 
-MODEL_NAME = "w11wo/indonesian-roberta-base-sentiment-classifier"
+MODEL_NAME = config.MODEL_NAME
 OUT_DIR = Path(__file__).parent / "hasil"
 OUT_DIR.mkdir(exist_ok=True)
 
-LLM_BASE_URL = "https://9router.amital.co.id/v1"
-LLM_MODEL = "coding"
+LLM_BASE_URL = config.LLM_BASE_URL
+LLM_MODEL = config.LLM_MODEL
 
 
-def _get_llm_key():
-    env_path = "/root/.hermes/.env"
-    key_name = "HERMES_CUSTOM_9ROUTER_AMITAL_CO_ID_API_KEY"
-    try:
-        with open(env_path, "r") as f:
-            for line in f:
-                line = line.strip()
-                if line.startswith(f"{key_name}=") and not line.startswith("#"):
-                    return line.split("=", 1)[1].strip()
-    except Exception:
-        pass
-    return os.environ.get(key_name, "")
-
-
-LLM_API_KEY = _get_llm_key()
+LLM_API_KEY = config.LLM_API_KEY
 
 
 def _load_ig_session():
@@ -292,7 +279,12 @@ def chat_completion_sync(messages, temperature=0.4, max_tokens=2000):
         except json.JSONDecodeError:
             decoder = json.JSONDecoder()
             data, _ = decoder.raw_decode(text)
-        return data["choices"][0]["message"]["content"]
+        msg = data["choices"][0]["message"]
+        content = msg.get("content", "")
+        reasoning = msg.get("reasoning_content", "")
+        if reasoning:
+            return f"> 💭 **Reasoning:**\n\n{reasoning}\n\n---\n\n{content}"
+        return content
 
 
 def generate_executive_summary(df, meta):
@@ -426,8 +418,8 @@ def export_pdf(df, meta, ai_summary=None, ai_reco=None):
     # Build PDF
     pdf = FPDF(orientation="P", unit="mm", format="A4")
     pdf.set_auto_page_break(auto=True, margin=15)
-    pdf.add_font("DejaVu", "", "/root/ig-sentiment/assets/fonts/DejaVuSans.ttf")
-    pdf.add_font("DejaVu", "B", "/root/ig-sentiment/assets/fonts/DejaVuSans-Bold.ttf")
+    pdf.add_font("DejaVu", "", config.FONT_REGULAR)
+    pdf.add_font("DejaVu", "B", config.FONT_BOLD)
 
     # Cover page
     pdf.add_page()

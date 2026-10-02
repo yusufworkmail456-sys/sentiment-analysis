@@ -23,7 +23,7 @@ Built with **Streamlit**, **Plotly**, **HuggingFace Transformers**, and any Open
   - Trend Volume (monthly comment volume over time)
   - GSS Trend (sentiment score over time)
 - **AI Insight Panel** — Executive summary + strategic recommendations via LLM
-- **AI Chatbot** — Ask questions about the data
+- **AI Chatbot** — Ask questions about the data, with reasoning shown for models that support it (e.g. GLM, DeepSeek-R1)
 - **PDF Export** — Full report with all charts + AI insights
 - **Alert Badges** — Automatic red flags for categories with >50% negative sentiment
 - **Data Filtering** — Filter by source, sentiment, category, text search
@@ -47,10 +47,16 @@ source venv/bin/activate
 pip install -r requirements.txt
 ```
 
+> **Note on torch:** `requirements.txt` installs the default torch build. If you're on a CPU-only server and want to avoid downloading CUDA packages (saves ~2GB), install torch first:
+> ```bash
+> pip install torch --index-url https://download.pytorch.org/whl/cpu
+> pip install -r requirements.txt
+> ```
+
 ### Step 2: Install Playwright (for TikTok scraper)
 
 ```bash
-playwright install chromium
+playwright install --with-deps chromium
 ```
 
 ### Step 3: Download Fonts
@@ -62,6 +68,7 @@ mkdir -p assets/fonts
 # On Debian/Ubuntu:
 cp /usr/share/fonts/truetype/dejavu/DejaVuSans.ttf assets/fonts/
 cp /usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf assets/fonts/
+# Or install: apt install fonts-dejavu-core
 # Or download from: https://dejavu-fonts.github.io/
 ```
 
@@ -73,20 +80,55 @@ nano .env
 ```
 
 Set these variables:
-- `LLM_BASE_URL` — Your LLM API endpoint (OpenAI, Ollama, vLLM, etc.)
-- `LLM_MODEL` — Model name (e.g., `gpt-3.5-turbo`, `llama3`, etc.)
+- `LLM_BASE_URL` — Your LLM API endpoint (OpenAI, Ollama, vLLM, ByteDance ARK, etc.)
+- `LLM_MODEL` — Model name (e.g., `gpt-4o-mini`, `llama3`, `glm-5-3-flash-260828`, etc.)
 - `LLM_API_KEY` — API key (leave empty for local models like Ollama)
 - `SENTIMENT_MODEL` — HuggingFace model (default: Indonesian Roberta)
 - `APP_TITLE` — Your app title
 - `APP_SUBTITLE` — Subtitle shown under title
+- `PLAYSTORE_APP_1`..`PLAYSTORE_APP_5` — (Optional) Pre-configure Play Store app package IDs
 
 ### Step 5: Run
 
 ```bash
-./venv/bin/streamlit run app.py --server.port 9120 --server.address 127.0.0.1 --server.headless true
+./venv/bin/streamlit run app.py --server.port 9120 --server.address 0.0.0.0 --server.headless true
 ```
 
-### Step 6: Nginx Reverse Proxy (Production)
+Access at `http://YOUR_SERVER_IP:9120`. Open port 9120 in your cloud provider's security group / firewall if needed.
+
+### Step 6: Systemd Service (Auto-start on boot)
+
+```ini
+# /etc/systemd/system/sentimetter.service
+[Unit]
+Description=Sentimetter - Multi-Platform Sentiment Analysis
+After=network.target
+
+[Service]
+Type=simple
+User=root
+WorkingDirectory=/opt/sentimetter
+Environment=HF_HOME=/opt/sentimetter/hf
+ExecStart=/opt/sentimetter/venv/bin/streamlit run app.py \
+    --server.port 9120 \
+    --server.address 0.0.0.0 \
+    --server.headless true
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
+```
+
+```bash
+systemctl daemon-reload
+systemctl enable --now sentimetter
+systemctl status sentimetter
+```
+
+### Step 7: Nginx Reverse Proxy (Optional — for domain + HTTPS)
+
+If you have a domain and want HTTPS access:
 
 ```nginx
 server {
@@ -100,35 +142,20 @@ server {
         proxy_set_header Connection "upgrade";
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_read_timeout 86400s;
+        proxy_buffering off;
     }
 }
 ```
 
-### Step 7: Systemd Service (Auto-start)
-
-```ini
-# /etc/systemd/system/sentiment-analysis.service
-[Unit]
-Description=Sentiment Analysis App
-After=network.target
-
-[Service]
-Type=simple
-User=www-data
-WorkingDirectory=/opt/sentiment-analysis
-ExecStart=/opt/sentiment-analysis/venv/bin/streamlit run app.py --server.port 9120 --server.address 127.0.0.1 --server.headless true
-Restart=always
-RestartSec=5
-
-[Install]
-WantedBy=multi-user.target
-```
-
 ```bash
-systemctl daemon-reload
-systemctl enable sentiment-analysis
-systemctl start sentiment-analysis
+# HTTPS via Let's Encrypt:
+certbot --nginx -d your-domain.com
 ```
+
+Then change `--server.address` back to `127.0.0.1` in the systemd service.
 
 ## How to Use
 
@@ -152,12 +179,12 @@ systemctl start sentiment-analysis
 
 8. **Export PDF** — Click "Export PDF" for a full report with charts + AI insights
 
-9. **Chat with AI** — Ask follow-up questions about the data in the AI panel
+9. **Chat with AI** — Ask follow-up questions about the data in the AI panel. Models that return reasoning (e.g. GLM, DeepSeek-R1) will show their reasoning process.
 
 ## Security Notes
 
 - **Credentials are stored locally** in `sessions/` directory as JSON files. They never leave your server.
-- **LLM API key** is read from environment variables or `.env` file. Never commit `.env` to git.
+- **LLM API key** is read from `.env` file via `config.py`. Never commit `.env` to git (it's in `.gitignore`).
 - **No data persistence** — Scraped data exists only in the current browser session. Refreshing the page clears it.
 - **No external data sharing** — Comments are sent to the LLM API for summary generation only. No third-party analytics or tracking.
 - **Play Store & YouTube** scrapers require no authentication.
@@ -196,7 +223,7 @@ CATEGORIES = {
 
 ### Play Store Apps
 
-Add your app IDs to `.env`:
+Add your app IDs to `.env` (optional — if not set, the app searches Play Store by keyword):
 
 ```env
 PLAYSTORE_APP_1=com.yourcompany.app1
@@ -221,7 +248,7 @@ SENTIMENT_MODEL=cardiffnlp/twitter-roberta-base-sentiment
 | PDF Export | kaleido + fpdf2 |
 | LLM | Any OpenAI-compatible API |
 | IG Scraper | instagrapi |
-| YT Scraper | youtube-comment-downloader |
+| YT Scraper | youtube-comment-downloader + yt-dlp |
 | Web Scraper | trafilatura + feedparser |
 | Play Store | google-play-scraper |
 | FB Scraper | facebook-scraper |

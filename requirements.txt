@@ -10,6 +10,7 @@ wordcloud
 matplotlib
 instagrapi
 youtube-comment-downloader
+yt-dlp
 trafilatura
 feedparser
 google-play-scraper
