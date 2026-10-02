@@ -266,6 +266,7 @@ def build_sentiment_context(df, meta):
 
 # === LLM ===
 def chat_completion_sync(messages, temperature=0.4, max_tokens=2000):
+    """Returns (content, reasoning) tuple. reasoning is "" if model doesn't support it."""
     with httpx.Client(timeout=120.0) as client:
         resp = client.post(f"{LLM_BASE_URL}/chat/completions",
             headers={"Authorization": f"Bearer {LLM_API_KEY}", "Content-Type": "application/json"},
@@ -282,9 +283,7 @@ def chat_completion_sync(messages, temperature=0.4, max_tokens=2000):
         msg = data["choices"][0]["message"]
         content = msg.get("content", "")
         reasoning = msg.get("reasoning_content", "")
-        if reasoning:
-            return f"> 💭 **Reasoning:**\n\n{reasoning}\n\n---\n\n{content}"
-        return content
+        return content, reasoning
 
 
 def generate_executive_summary(df, meta):
@@ -299,7 +298,8 @@ def generate_executive_summary(df, meta):
         )},
         {"role": "user", "content": f"{context}\n\nBuat executive summary."},
     ]
-    return chat_completion_sync(messages, temperature=0.3, max_tokens=800)
+    content, _ = chat_completion_sync(messages, temperature=0.3, max_tokens=800)
+    return content
 
 
 def generate_recommendations(df, meta):
@@ -314,7 +314,8 @@ def generate_recommendations(df, meta):
         )},
         {"role": "user", "content": f"{context}\n\nBuat consideration & recommendation."},
     ]
-    return chat_completion_sync(messages, temperature=0.4, max_tokens=1200)
+    content, _ = chat_completion_sync(messages, temperature=0.4, max_tokens=1200)
+    return content
 
 
 
@@ -1061,8 +1062,12 @@ if _ai_area is not None:
                     with st.chat_message("assistant"):
                         with st.spinner("Menjawab..."):
                             try:
-                                response = chat_completion_sync(messages, temperature=0.4, max_tokens=2000)
-                                st.markdown(response)
+                                content, reasoning = chat_completion_sync(messages, temperature=0.4, max_tokens=2000)
+                                if reasoning:
+                                    with st.expander("💭 Reasoning", expanded=False):
+                                        st.markdown(reasoning)
+                                st.markdown(content)
+                                response = content
                             except Exception as e:
                                 response = f"Gagal: {e}"
                                 st.error(response)
