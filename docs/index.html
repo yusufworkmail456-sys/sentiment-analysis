@@ -412,6 +412,81 @@ Range:
     <h3>Deduplikasi Data</h3>
     <p>Setelah semua source terkumpul, data di-dedupe berdasarkan <code class="inline-code">(source, text[:200].lower())</code> — komentar yang sama dari platform yang sama dihilangkan.</p>
 
+    <h3>Skor Sentiment (−100 s/d +100)</h3>
+    <p>Selain GSS, terdapat <strong>Skor Sentiment</strong> dalam rentang −100 s/d +100:</p>
+    <div class="code-block">
+      <div class="code-header"><span class="lang">formula</span><button class="copy-btn" onclick="copyCode(this)">copy</button></div>
+      <div class="code-body"><pre>Skor = %Positif − %Negatif
+
+Contoh: 20% positif, 69% negatif → Skor = 20 − 69 = −49</pre></div>
+    </div>
+
+    <h3>Keyakinan Prediksi (Confidence Score)</h3>
+    <p>Setiap komentar memiliki confidence score (0.0–1.0) dari model. Threshold:</p>
+    <table class="spec-table">
+      <tbody>
+        <tr><td>≥ 0.6</td><td><strong>"yakin"</strong> — prediksi confidence tinggi</td></tr>
+        <tr><td>&lt; 0.6</td><td><strong>"ragu"</strong> — prediksi mungkin meleset, diberi badge ⚠️</td></tr>
+      </tbody>
+    </table>
+
+    <h3>8 Visualisasi Dashboard & Cara Perhitungan</h3>
+    <table class="spec-table">
+      <thead><tr><th>#</th><th>Visualisasi</th><th>Cara Hitung</th></tr></thead>
+      <tbody>
+        <tr>
+          <td>1</td>
+          <td><strong>GSS Score Gauge</strong></td>
+          <td><code class="inline-code">(Positif + 0.5 × Netral) / Total × 100</code> → gauge 0–100. Range: 0–40 🔴 Kritis, 40–60 🟡 Netral, 60–80 🟢 Baik, 80–100 🟢 Sangat Baik.</td>
+        </tr>
+        <tr>
+          <td>2</td>
+          <td><strong>Sentiment per Kategori</strong></td>
+          <td>Persentase positif (ke kanan) vs negatif (ke kiri) per kategori domain. Bar diverging.</td>
+        </tr>
+        <tr>
+          <td>3</td>
+          <td><strong>Persebaran per Sumber</strong></td>
+          <td>Stacked bar: jumlah absolut Positif/Netral/Negatif per platform.</td>
+        </tr>
+        <tr>
+          <td>4</td>
+          <td><strong>Channel Scorecard</strong></td>
+          <td>Ranking tabel: GSS per platform <code class="inline-code">(P + 0.5×N)/Total × 100</code>, diurutkan tertinggi ke terendah. Menampilkan Volume, Pos%, Neg%, GSS per channel.</td>
+        </tr>
+        <tr>
+          <td>5</td>
+          <td><strong>Top Terms Negatif</strong></td>
+          <td>Word frequency dari komentar berlabel Negatif. Exclude stopwords Indonesia. Include bigram dengan negators (e.g. "tidak ramah", "belum bayar"). Exclude keyword pencarian agar tidak mendominasi.</td>
+        </tr>
+        <tr>
+          <td>6</td>
+          <td><strong>Viral Detection</strong></td>
+          <td>Scatter plot: X = skor sentiment (0.0–1.0), Y = engagement (likes). Color = label. Post dengan engagement tinggi & sentimen negatif = priority response.</td>
+        </tr>
+        <tr>
+          <td>7</td>
+          <td><strong>Trend Volume</strong></td>
+          <td>Hanya muncul jika ada data <code class="inline-code">scheduled_scrape.py</code> (CSV history). Volume komentar bulanan dari waktu ke waktu.</td>
+        </tr>
+        <tr>
+          <td>8</td>
+          <td><strong>GSS Trend</strong></td>
+          <td>Hanya muncul jika ada data <code class="inline-code">scheduled_scrape.py</code>. Tren skor GSS dari waktu ke waktu. Butuh 2+ scheduled run untuk muncul.</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <div class="callout tip">
+      <div class="body">
+        <strong>Chart 7 & 8 butuh scheduled scrape</strong>
+        Tanpa menjalankan <code class="inline-code">scheduled_scrape.py</code> via cron, chart Trend Volume dan GSS Trend tidak muncul. App ini adalah snapshot tool — tiap run independent, data tidak tersimpan antar session.
+      </div>
+    </div>
+
+    <h3>Alert Badges</h3>
+    <p>Otomatis muncul badge 🔴 untuk kategori dengan <strong>&gt;50% sentimen negatif</strong>. Alert ini membantu identifikasi area perlu perhatian prioritas.</p>
+
   </section>
 
 
