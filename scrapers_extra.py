@@ -39,19 +39,38 @@ def scrape_facebook(keyword, max_comments=100, log=print):
     cookies = _parse_cookie_str(cookie_str)
 
     rows = []
+    pages = max(3, min(10, max_comments // 20))
     log(f"Facebook: cari '{keyword}' ...")
 
+    # facebook_scraper tidak punya parameter 'search'.
+    # Coba hashtag dulu, lalu fallback ke account (nama halaman).
+    posts = None
     try:
         posts = get_posts(
-            search=keyword,
-            pages=max(3, min(10, max_comments // 20)),
+            hashtag=keyword,
+            pages=pages,
             cookies=cookies,
             options={"comments": True, "reactors": True},
             extra_info=True,
         )
+        # konsumsi iterator untuk trigger request + validasi
+        posts = iter(list(posts))
+        log(f"Facebook: hashtag '#{keyword}' OK")
     except Exception as e:
-        log(f"Facebook: search gagal: {type(e).__name__} {str(e)[:100]}")
-        return []
+        log(f"Facebook: hashtag gagal: {type(e).__name__} {str(e)[:80]}")
+        try:
+            posts = get_posts(
+                account=keyword,
+                pages=pages,
+                cookies=cookies,
+                options={"comments": True, "reactors": True},
+                extra_info=True,
+            )
+            posts = iter(list(posts))
+            log(f"Facebook: account '{keyword}' OK")
+        except Exception as e2:
+            log(f"Facebook: account gagal: {type(e2).__name__} {str(e2)[:80]}")
+            return []
 
     count = 0
     for post in posts:
