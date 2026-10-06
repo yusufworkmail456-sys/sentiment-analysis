@@ -25,9 +25,15 @@ def scrape_facebook(keyword, max_comments=100, log=print):
     """Facebook search via facebook-scraper. Butuh cookie session."""
     from facebook_scraper import get_posts
 
-    cookie_str = _load_session("facebook")
-    if not cookie_str:
+    session = _load_session("facebook")
+    if not session:
         raise RuntimeError("Facebook belum dikonfigurasi. Paste cookie session "
+                           "di bagian Kredensial.")
+
+    # _load_session returns dict {"cookie": "..."} — extract the string
+    cookie_str = session.get("cookie", "") if isinstance(session, dict) else session
+    if not cookie_str:
+        raise RuntimeError("Cookie Facebook kosong. Paste cookie session "
                            "di bagian Kredensial.")
 
     cookies = _parse_cookie_str(cookie_str)
@@ -91,9 +97,15 @@ def scrape_tiktok(keyword, max_comments=100, log=print):
     """TikTok hashtag search via TikTokApi. Butuh ms_token."""
     from TikTokApi import TikTokApi
 
-    ms_token = _load_session("tiktok")
-    if not ms_token:
+    session = _load_session("tiktok")
+    if not session:
         raise RuntimeError("TikTok belum dikonfigurasi. Paste ms_token di "
+                           "bagian Kredensial.")
+
+    # _load_session returns dict {"ms_token": "..."} — extract the string
+    ms_token = session.get("ms_token", "") if isinstance(session, dict) else session
+    if not ms_token:
+        raise RuntimeError("ms_token TikTok kosong. Paste ms_token di "
                            "bagian Kredensial.")
 
     rows = []
