@@ -1,6 +1,69 @@
-# Scraper Komentar Instagram + Sentiment Analysis
+# Sentimetter — Multi-Platform Sentiment Analysis
 
-Pipeline: URL postingan IG -> CSV komentar -> CSV berlabel sentimen (positif/netral/negatif).
+Dashboard web (Streamlit) untuk scrape komentar dari 6 platform sosial media,
+klasifikasi sentimen pakai model IndoBERT, kategorisasi topik, visualisasi,
+ringkasan AI, dan export PDF.
+
+## Struktur File
+
+Repo punya **2 alur** yang berjalan terpisah:
+
+### Alur 1 — Dashboard Web (utama)
+
+Dashboard Streamlit interaktif. Semua scraping + analisis jalan di dalam app.
+
+```
+app.py              Dashboard UI utama (Streamlit). 1075 baris.
+                    Scrape → analisis sentimen → visualisasi → AI insight → PDF.
+├── config.py       Konfigurasi: path, env vars, model LLM, model sentiment.
+├── multiscrape.py  Scraper Instagram + YouTube + Web (Google News).
+│   └── ig_web_scraper.py   Scraper IG via web API (pakai cookie session_id).
+├── scrapers_extra.py       Scraper Facebook + TikTok + Play Store.
+├── categorize.py   Klasifikasi kategori konten (Pelayanan/Klaim/Sistem Digital).
+│                   Keyword matching + LLM fallback. Bisa dikustomisasi.
+└── icons.py         Set SVG icon untuk UI (style seragam, tema docs).
+```
+
+Jalankan:
+```
+./venv/bin/streamlit run app.py --server.port 9120 --server.address 0.0.0.0
+```
+
+### Alur 2 — CLI Pipeline (otomatis via shell script / cron)
+
+Pipeline command-line lama. Scrape → sentiment → ringkasan → kirim ke LINE bot.
+
+```
+run_pipeline.sh             run_keyword_pipeline.sh
+  scrape.py (URL IG)          keyword_scrape.py (hashtag/keyword)
+       ↓                            ↓
+  sentiment.py              sentiment.py (CSV → CSV berlabel)
+       ↓                            ↓
+  summarize.py              summarize.py (ringkasan teks)
+       ↓                            ↓
+  line_send.py              line_send.py (kirim ke LINE + file CSV)
+```
+
+| File | Fungsi |
+|---|---|
+| `scrape.py` | Scraper IG per-URL postingan (pakai instagrapi). |
+| `keyword_scrape.py` | Scraper IG berdasarkan hashtag/keyword. |
+| `sentiment.py` | CLI: CSV komentar → CSV berlabel sentimen (model Roberta). |
+| `summarize.py` | Generate ringkasan teks untuk pesan LINE. |
+| `line_send.py` | Kirim ringkasan + file CSV ke LINE bot. |
+| `scheduled_scrape.py` | Versi terjadwal untuk cron, simpan hasil ke `hasil/`. |
+
+### Dokumentasi (`docs/`)
+
+Bukan kode utama. Tool pendukung dokumentasi:
+
+| File | Fungsi |
+|---|---|
+| `docs/make_diagram.py` | Generate diagram arsitektur PNG. |
+| `docs/send_docs.py` | Kirim dokumen. |
+| `docs/verify_pdf.py` | Verifikasi file PDF. |
+
+## Setup VPS
 
 Semua jalan di VPS (`/root/ig-sentiment/`). Traffic IG lewat Cloudflare WARP
 (proxy SOCKS5 lokal 127.0.0.1:40000) supaya tidak kena blok IP datacenter.
