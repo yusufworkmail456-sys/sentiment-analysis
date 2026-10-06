@@ -22,15 +22,21 @@ SESSION_DIR.mkdir(exist_ok=True)
 
 # =============================================================== FACEBOOK
 def scrape_facebook(keyword, max_comments=100, log=print):
-    """Facebook search via facebook-scraper. Butuh cookie session."""
-    from facebook_scraper import get_posts
+    """Facebook hashtag search via Playwright. Butuh cookie session (c_user + xs).
+
+    Menggunakan Playwright (headless Chromium) karena facebook_scraper tidak
+    bisa parse halaman FB modern (Comet UI / React-rendered).
+
+    User tetap paste cookie di kolom yang sama. Scraper inject cookie ke
+    browser, buka halaman hashtag, scroll, dan extract post text.
+    """
+    from playwright.sync_api import sync_playwright, TimeoutError as PWTimeout
 
     session = _load_session("facebook")
     if not session:
         raise RuntimeError("Facebook belum dikonfigurasi. Paste cookie session "
                            "di bagian Kredensial.")
 
-    # _load_session returns dict {"cookie": "..."} — extract the string
     cookie_str = session.get("cookie", "") if isinstance(session, dict) else session
     if not cookie_str:
         raise RuntimeError("Cookie Facebook kosong. Paste cookie session "
@@ -38,76 +44,151 @@ def scrape_facebook(keyword, max_comments=100, log=print):
 
     cookies = _parse_cookie_str(cookie_str)
 
-    rows = []
-    pages = max(3, min(10, max_comments // 20))
-    log(f"Facebook: cari '{keyword}' ...")
+    # Validasi: butuh c_user + xs minimum
+    if "c_user" not in cookies or "xs" not in cookies:
+        raise RuntimeError("Cookie tidak lengkap. Butuh c_user dan xs.")
 
-    # facebook_scraper tidak punya parameter 'search'.
-    # Coba hashtag dulu, lalu fallback ke account (nama halaman).
-    posts = None
-    try:
-        posts = get_posts(
-            hashtag=keyword,
-            pages=pages,
-            cookies=cookies,
-            options={"comments": True, "reactors": True},
-            extra_info=True,
+    rows = []
+    log(f"Facebook: cari '#{keyword}' via Playwright ...")
+
+    with sync_playwright() as p:
+        browser = p.chromium.launch(headless=True)
+        context = browser.new_context(
+            user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+                       "AppleWebKit/537.36 (KHTML, like Gecko) "
+                       "Chrome/124.0 Safari/537.36",
+            viewport={"width": 1280, "height": 1024},
         )
-        # konsumsi iterator untuk trigger request + validasi
-        posts = iter(list(posts))
-        log(f"Facebook: hashtag '#{keyword}' OK")
-    except Exception as e:
-        log(f"Facebook: hashtag gagal: {type(e).__name__} {str(e)[:80]}")
+
+        # Inject cookies
+        pw_cookies = [
+            {"name": k, "value": v, "domain": ".facebook.com", "path": "/"}
+            for k, v in cookies.items()
+        ]
+        context.add_cookies(pw_cookies)
+        page = context.new_page()
+
         try:
-            posts = get_posts(
-                account=keyword,
-                pages=pages,
-                cookies=cookies,
-                options={"comments": True, "reactors": True},
-                extra_info=True,
+            page.goto(
+                f"https://www.facebook.com/hashtag/{keyword}",
+                timeout=30000,
+                wait_until="domcontentloaded",
             )
-            posts = iter(list(posts))
-            log(f"Facebook: account '{keyword}' OK")
-        except Exception as e2:
-            log(f"Facebook: account gagal: {type(e2).__name__} {str(e2)[:80]}")
+        except PWTimeout:
+            log("Facebook: timeout loading page")
+            browser.close()
             return []
 
-    count = 0
-    for post in posts:
-        if count >= max_comments:
-            break
-        ptext = (post.get("post_text") or "").strip().replace("\n", " ")
-        if ptext:
-            rows.append({
-                "source": "facebook",
-                "text": ptext[:3000],
-                "author": post.get("username", ""),
-                "date": str(post.get("time", "")),
-                "likes": post.get("likes", 0) or 0,
-                "url": post.get("post_url", ""),
-            })
-            count += 1
+        page.wait_for_timeout(5000)
 
-        comments = post.get("comments_full") or []
-        for c in comments:
-            if count >= max_comments:
+        # Scroll to load more posts
+        scroll_count = min(8, max(2, max_comments // 15))
+        for _ in range(scroll_count):
+            page.evaluate("window.scrollTo(0, document.body.scrollHeight)")
+            page.wait_for_timeout(2000)
+
+        # Expand "See more" buttons
+        see_mores = page.query_selector_all('div[role="button"]:has-text("See more")')
+        for btn in see_mores[:10]:
+            try:
+                btn.click(timeout=3000)
+                page.wait_for_timeout(600)
+            except Exception:
+                pass
+
+        # Extract posts from feed
+        feed = page.query_selector('[role="feed"]')
+        if not feed:
+            log("Facebook: feed tidak ditemukan (cookie expired?)")
+            browser.close()
+            return []
+
+        children = feed.query_selector_all(":scope > *")
+        for child in children:
+            if len(rows) >= max_comments:
                 break
-            ct = (c.get("comment_text") or "").strip().replace("\n", " ")
-            if len(ct) < 5:
+            try:
+                text = child.inner_text()
+            except Exception:
                 continue
+
+            lines = [l.strip() for l in text.split("\n") if l.strip()]
+            content = [
+                l for l in lines
+                if l != "Facebook"
+                and not l.startswith("Number of")
+                and l not in ("·", "Follow", "Active", "Online status indicator")
+            ]
+
+            if len(content) < 4:
+                continue
+
+            # Author = first line
+            author = content[0]
+
+            # Post text: lines after author block, before metadata markers
+            post_start = 0
+            for j, line in enumerate(content[:6]):
+                if line in ("Follow", "·"):
+                    post_start = j + 1
+                    break
+
+            post_end = len(content)
+            markers = (
+                "Shared post", "See translation", "See less",
+                "May be an image", "No photo", "Send message",
+                "View post", "Write a comment", "AI content",
+            )
+            for j in range(post_start, len(content)):
+                if any(content[j].startswith(m) or content[j] == m for m in markers):
+                    post_end = j
+                    break
+
+            post_text = " ".join(content[post_start:post_end]).strip()
+            # Clean up noise
+            post_text = post_text.replace("… See more", "").replace("…See more", "")
+            post_text = post_text.replace("See less", "").strip()
+            # Remove author name prefix from post text (FB sometimes includes it)
+            if author and post_text.startswith(author):
+                post_text = post_text[len(author):].strip()
+            if len(post_text) < 10:
+                continue
+
+            # Extract URL
+            url = ""
+            try:
+                link_el = child.query_selector("a[href]")
+                if link_el:
+                    url = link_el.get_attribute("href") or ""
+            except Exception:
+                pass
+
+            # Extract likes (first number near end)
+            likes = 0
+            for j in range(len(content) - 1, post_end - 1, -1):
+                try:
+                    n = int(content[j].replace(",", ""))
+                    if 0 < n < 100000:
+                        likes = n
+                        break
+                except ValueError:
+                    continue
+
             rows.append({
                 "source": "facebook",
-                "text": ct[:3000],
-                "author": c.get("commenter_name", ""),
-                "date": str(c.get("comment_time", "")),
-                "likes": c.get("comment_reactors", 0) or 0,
-                "url": post.get("post_url", ""),
+                "text": post_text[:3000],
+                "author": author[:200],
+                "date": "",
+                "likes": likes,
+                "url": url,
             })
-            count += 1
 
-        log(f"Facebook: '{(post.get('post_text') or '')[:40]}': "
-            f"total {len(rows)}")
+            if len(rows) % 5 == 0:
+                log(f"Facebook: {len(rows)} baris terkumpul ...")
 
+        browser.close()
+
+    log(f"Facebook: selesai, {len(rows)} baris")
     return rows[:max_comments]
 
 
