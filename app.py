@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Streamlit UI: Sentimetter - multi-platform sentiment analysis dashboard.
+"""Streamlit UI: Sentiment Analysis - multi-platform sentiment analysis dashboard.
 
 Left:  Tabs [Scrape & Analisis (incl. credential mgmt), Dashboard]
 Right: AI Insight (exec summary + reco + chatbot) - sticky
@@ -83,7 +83,7 @@ DOMAIN_STOPWORDS = {
 }
 FONT_PATH = str(Path(__file__).parent / "assets" / "fonts" / "DejaVuSans.ttf")
 
-st.set_page_config(page_title="Sentimetter", layout="wide")
+st.set_page_config(page_title="Sentiment Analysis", layout="wide")
 
 # === Compact theme ===
 st.markdown("""
@@ -425,7 +425,7 @@ def export_pdf(df, meta, ai_summary=None, ai_reco=None):
     # Cover page
     pdf.add_page()
     pdf.set_font("DejaVu", "B", 18)
-    pdf.cell(0, 15, "Sentimetter — Sentiment Analysis Report", new_x="LMARGIN", new_y="NEXT")
+    pdf.cell(0, 15, "Sentiment Analysis Report", new_x="LMARGIN", new_y="NEXT")
     pdf.set_font("DejaVu", "", 11)
     pdf.ln(5)
     pdf.cell(0, 7, f"Keyword: {meta.get('keyword', '?')}", new_x="LMARGIN", new_y="NEXT")
@@ -489,7 +489,7 @@ def export_pdf(df, meta, ai_summary=None, ai_reco=None):
     with open(out_path, "rb") as f:
         return f.read()
 # ================================================================ MAIN
-st.markdown(f'<div style="display:flex;align-items:center;gap:8px;">{icon("chart", 28, ic.C_PRIMARY)}<h1 style="margin:0;">Sentimetter</h1></div>', unsafe_allow_html=True)
+st.markdown('<div style="display:flex;align-items:center;gap:10px;"><img src="assets/taspen.svg" height="42" style="vertical-align:middle;"><img src="assets/logo2.jpg" height="38" style="vertical-align:middle;border-radius:4px;"><h1 style="margin:0;">Sentiment Analysis</h1></div>', unsafe_allow_html=True)
 st.caption("Multi-platform · IndoBERT · domain categorization · AI insight")
 
 # AI panel visibility: hidden (default) → narrow → wide
