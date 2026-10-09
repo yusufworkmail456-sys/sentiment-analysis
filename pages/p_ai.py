@@ -18,7 +18,7 @@ def page_ai():
     meta = st.session_state.get("meta", {})
 
     if df is None or df.empty:
-        st.warning("Jalankan analisis di tab Scrape dulu.")
+        st.warning("Jalankan analisis di halaman **Scrape & Analisis** dulu.")
     else:
         if st.button("Generate All AI Insights", type="primary", use_container_width=True, key="btn_all"):
             with st.spinner("Generating..."):

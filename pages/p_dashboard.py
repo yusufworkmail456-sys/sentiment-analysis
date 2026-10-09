@@ -14,7 +14,7 @@ def page_dashboard():
 
     df = st.session_state.get("df")
     if df is None or df.empty:
-        st.info("Jalankan scraping di tab 'Scrape & Analisis' dulu.")
+        st.info("Jalankan scraping di halaman **Scrape & Analisis** dulu.")
     else:
         # --- PDF Export button ---
         tr1, tr2 = st.columns([4, 1])
