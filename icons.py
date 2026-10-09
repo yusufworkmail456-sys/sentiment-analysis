@@ -1,20 +1,22 @@
-"""Custom SVG icon set for Sentimetter - uniform line-icon style.
-Matches docs theme: primary #3498db, ink #0b1120, text #1e293b.
+"""Custom SVG icon set for Taspen Sentiment Platform - uniform line-icon style.
+Taspen brand palette: navy #004a7c, blue #005d97, gold #e8c21d.
 """
 import html as _html
 
-# ── Color palette (from docs) ──────────────────────────────
-C_PRIMARY = "#3498db"
-C_PRIMARY_DARK = "#2980b9"
-C_INK = "#0b1120"
-C_TEXT = "#1e293b"
-C_MUTED = "#64748b"
-C_SUCCESS = "#22c55e"
-C_WARNING = "#f59e0b"
-C_DANGER = "#ef4444"
-C_POSITIF = "#2ecc71"
-C_NETRAL = "#95a5a6"
-C_NEGATIF = "#e74c3c"
+# ── Color palette (Taspen brand) ──────────────────────────
+C_PRIMARY = "#005d97"
+C_PRIMARY_DARK = "#004a7c"
+C_GOLD = "#e8c21d"
+C_GOLD_DARK = "#d1ae24"
+C_INK = "#0b1f33"
+C_TEXT = "#1e3a52"
+C_MUTED = "#5c7a94"
+C_SUCCESS = "#1e9e6a"
+C_WARNING = "#e8a13a"
+C_DANGER = "#d64545"
+C_POSITIF = "#1e9e6a"
+C_NETRAL = "#8aa5b5"
+C_NEGATIF = "#d64545"
 
 # ── Icon definitions (24x24 viewBox, stroke-based line icons) ──
 _ICONS = {
