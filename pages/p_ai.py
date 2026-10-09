@@ -4,6 +4,14 @@ import streamlit as st
 def page_ai():
     from pages.header import topbar
     topbar("AI Insight", "Ringkasan eksekutif, rekomendasi, dan chatbot analisis")
+    # Semua helper/nama dari app.py (ditambah yang underscore-private yang dipakai page ini)
+    import app as _app
+    _g = globals()
+    for _k, _v in vars(_app).items():
+        if _k.startswith("__"):
+            continue
+        _g.setdefault(_k, _v)
+
     st.subheader("AI Insight")
 
     df = st.session_state.get("df")

@@ -4,6 +4,14 @@ import streamlit as st
 def page_dashboard():
     from pages.header import topbar
     topbar("Dashboard", "Visualization overview hasil analisis sentimen gabungan semua sumber")
+    # Semua helper/nama dari app.py (ditambah yang underscore-private yang dipakai page ini)
+    import app as _app
+    _g = globals()
+    for _k, _v in vars(_app).items():
+        if _k.startswith("__"):
+            continue
+        _g.setdefault(_k, _v)
+
     df = st.session_state.get("df")
     if df is None or df.empty:
         st.info("Jalankan scraping di tab 'Scrape & Analisis' dulu.")
