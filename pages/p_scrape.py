@@ -5,13 +5,13 @@ def page_scrape():
     from pages.header import topbar
     topbar("Scrape & Analisis", "Kumpulkan data dari 6 platform lalu analisis sentimennya")
     # Semua helper/nama dari app.py (ditambah yang underscore-private yang dipakai page ini)
-    import app as _app
+    import core as _core
     _g = globals()
-    for _k, _v in vars(_app).items():
+    for _k, _v in vars(_core).items():
         if _k.startswith("__"):
             continue
         _g.setdefault(_k, _v)
-    from app import _load_ig_session
+    from core import _load_ig_session
     _g["_load_ig_session"] = _load_ig_session
 
     df = st.session_state.get("df")

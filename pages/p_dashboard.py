@@ -5,9 +5,9 @@ def page_dashboard():
     from pages.header import topbar
     topbar("Dashboard", "Visualization overview hasil analisis sentimen gabungan semua sumber")
     # Semua helper/nama dari app.py (ditambah yang underscore-private yang dipakai page ini)
-    import app as _app
+    import core as _core
     _g = globals()
-    for _k, _v in vars(_app).items():
+    for _k, _v in vars(_core).items():
         if _k.startswith("__"):
             continue
         _g.setdefault(_k, _v)
