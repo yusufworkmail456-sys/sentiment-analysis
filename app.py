@@ -562,6 +562,6 @@ page = st.navigation([
     st.Page(page_ai,        title="AI Insight",        icon=":material/auto_awesome:"),
 ], position="sidebar")
 
-st.logo("assets/taspen.svg", size=26)
+st.logo("assets/taspen.svg")
 
 page.run()
