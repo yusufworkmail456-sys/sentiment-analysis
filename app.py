@@ -110,8 +110,12 @@ st.markdown("""
   .tsp-topbar-sub2 {color:var(--muted); font-size:.7rem;}
 
   /* ===== Typography ===== */
-  body, .stApp, p, li, span, div, button, input, textarea, label, th, td {
+  body, .stApp, p, li, div, button, input, textarea, label, th, td {
     font-family:'Plus Jakarta Sans',system-ui,sans-serif !important; color:var(--text);}
+  span:not(.material-symbols-outlined) {
+    font-family:'Plus Jakarta Sans',system-ui,sans-serif !important; color:var(--text);}
+  .material-symbols-outlined, span.material-symbols-outlined {
+    font-family:'Material Symbols Outlined' !important; color:inherit;}
   h1,h2,h3,h4 {color:var(--ink); font-family:'Plus Jakarta Sans',sans-serif !important;}
   h1 {font-size:1.45rem; font-weight:800; letter-spacing:-.02em;}
   h2 {font-size:1.15rem; font-weight:700;}
