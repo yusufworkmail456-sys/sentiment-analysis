@@ -555,12 +555,11 @@ def export_pdf(df, meta, ai_summary=None, ai_reco=None):
 from pages.p_scrape import page_scrape
 from pages.p_dashboard import page_dashboard
 from pages.p_ai import page_ai
-from streamlit.navigation import Page
 
 page = st.navigation([
-    Page(page_scrape,  title="Scrape & Analisis", icon=":material/rocket_launch:"),
-    Page(page_dashboard, title="Dashboard",       icon=":material/dashboard:"),
-    Page(page_ai,        title="AI Insight",      icon=":material/auto_awesome:"),
+    st.Page(page_scrape,    title="Scrape & Analisis", icon=":material/rocket_launch:"),
+    st.Page(page_dashboard, title="Dashboard",         icon=":material/dashboard:"),
+    st.Page(page_ai,        title="AI Insight",        icon=":material/auto_awesome:"),
 ], position="sidebar")
 
 st.logo("assets/taspen.svg", size=26)
