@@ -1,4 +1,4 @@
-"""Page: Scrape & Analisis - konfigurasi + kredensial + hasil (full custom UI)."""
+"""Page: Scrape & Analisis - konfigurasi + kredensial + hasil (Stitch UI)."""
 import streamlit as st
 import ui
 
@@ -18,12 +18,22 @@ def page_scrape():
 
     df = st.session_state.get("df")
 
-    # ============================================ 1. KREDENSIAL (kartu custom)
+    # ============================================ PAGE HEAD (Stitch banner)
+    chips = (ui.chip("auto_awesome", "Multi-platform Scrape", "info") +
+             ui.chip("bolt", "6 Sumber Data", "gold"))
+    actions = (ui.btn("Export & Reports", "summarize", "secondary") +
+               ui.btn("AI Insight", "auto_awesome", "gold"))
+    st.markdown(ui.page_head(
+        "Scrape & Analisis",
+        "Kumpulkan komentar dari Instagram, YouTube, Web, Play Store, Facebook, "
+        "dan TikTok lalu analisis sentimennya dengan model ID-Sentiment.",
+        chips, actions), unsafe_allow_html=True)
+
+    # ============================================ 1. KREDENSIAL
     with st.expander("Kredensial Sumber Data", expanded=False):
         def _tile(icon_name, label, plat, note=""):
             ok = plat in ("youtube", "web", "playstore") or check_session(plat) == "ok"
-            return ui.source_tile(None, label, icon(icon_name, 16, ic.C_PRIMARY),
-                                  ic.C_PRIMARY, status_ok=ok, note=note)
+            return ui.source_tile(label, icon_name, status_ok=ok, note=note)
 
         c1, c2, c3 = st.columns(3)
         with c1:
@@ -88,15 +98,16 @@ def page_scrape():
                         st.error(msg)
 
         with c3:
-            st.markdown(_tile("youtube", "YouTube", "youtube", "tanpa login"), unsafe_allow_html=True)
-            st.markdown(_tile("web", "Web berita", "web", "tanpa login"), unsafe_allow_html=True)
-            st.markdown(_tile("playstore", "Play Store", "playstore", "tanpa login"),
+            st.markdown(_tile("youtube", "YouTube", "youtube", "tanpa login"),
+                        unsafe_allow_html=True)
+            st.markdown(_tile("language", "Web berita", "web", "tanpa login"),
+                        unsafe_allow_html=True)
+            st.markdown(_tile("shop", "Play Store", "playstore", "tanpa login"),
                         unsafe_allow_html=True)
 
     # ============================================ 2. KONFIGURASI SCRAPE
-    with st.expander("Konfigurasi", expanded=df is None):
-        st.markdown(ui.section("Kata kunci", "topik yang dicari di semua platform", 1),
-                    unsafe_allow_html=True)
+    with st.expander("Konfigurasi Scrape", expanded=df is None):
+        st.markdown('<div class="tsp-sb-label">Kata kunci</div>', unsafe_allow_html=True)
         p = st.pills("Contoh:", ["taspen", "pensiun", "asn", "taspen life"], key="kw_pills")
         if p and p != st.session_state.get("kw_applied"):
             st.session_state["kw_input"] = p
@@ -105,23 +116,25 @@ def page_scrape():
                                 label_visibility="collapsed",
                                 placeholder="nama brand, produk, atau topik")
 
-        st.markdown(ui.section("Sumber & jumlah", "aktifkan platform, atur target data", 2),
+        st.markdown('<div class="tsp-sb-label">Sumber &amp; jumlah target</div>',
                     unsafe_allow_html=True)
-        # Tile per source + toggle + jumlah, dalam grid 6 kolom
         SRC_CFG = [
-            ("ig_on", "n_ig", "instagram", "Instagram", 300, 60),
-            ("yt_on", "n_yt", "youtube", "YouTube", 300, 60),
-            ("web_on", "n_web", "web", "Web", 30, 8),
-            ("ps_on", "n_ps", "playstore", "Play Store", 300, 60),
-            ("fb_on", "n_fb", "facebook", "Facebook", 300, 60),
-            ("tt_on", "n_tt", "tiktok", "TikTok", 300, 60),
+            ("ig_on", "n_ig", "photo_camera", "Instagram", 300, 60),
+            ("yt_on", "n_yt", "play_circle", "YouTube", 300, 60),
+            ("web_on", "n_web", "language", "Web", 30, 8),
+            ("ps_on", "n_ps", "shop", "Play Store", 300, 60),
+            ("fb_on", "n_fb", "thumb_up", "Facebook", 300, 60),
+            ("tt_on", "n_tt", "music_note", "TikTok", 300, 60),
         ]
         scols = st.columns(6)
         src_vals = {}
         for col, (on_k, n_k, ic_name, label, mx, dv) in zip(scols, SRC_CFG):
             with col:
-                default_on = on_k in ("ig_on", "yt_on", "web_on", "ps_on")
-                on = st.toggle(label, value=default_on, key=on_k)
+                st.markdown(ui.source_tile(label, ic_name,
+                                           status_ok=on_k in ("ig_on", "yt_on", "web_on", "ps_on")),
+                            unsafe_allow_html=True)
+                on = st.toggle("aktif", value=on_k in ("ig_on", "yt_on", "web_on", "ps_on"),
+                               key=on_k, label_visibility="collapsed")
                 n = st.number_input("max", 0, mx, dv, 10 if mx > 30 else 1, key=n_k,
                                     disabled=not on, label_visibility="collapsed")
                 src_vals[on_k] = on
@@ -161,7 +174,7 @@ def page_scrape():
 
                 rows = dedupe(rows)
                 if not rows:
-                    status.update(label="Selesai — tidak ada data", state="error")
+                    status.update(label="Selesai - tidak ada data", state="error")
                     st.error("Tidak ada data. Coba keyword lain.")
                     rows = None
                 else:
@@ -192,8 +205,8 @@ def page_scrape():
     if df is None:
         st.markdown(ui.empty_state(
             "Belum ada data",
-            "Atur kata kunci dan sumber di panel Konfigurasi, lalu klik Mulai Scrape + Analisis.",
-            icon("radar", 30, ic.C_MUTED)), unsafe_allow_html=True)
+            "Atur kata kunci dan sumber di panel Konfigurasi Scrape, lalu klik "
+            "Mulai Scrape + Analisis.", "radar"), unsafe_allow_html=True)
         return
 
     meta = st.session_state.get("meta", {})
@@ -212,53 +225,51 @@ def page_scrape():
     skor = round(pct["Positif"] - pct["Negatif"], 1)
     gss = round((cnt.get("Positif", 0) + 0.5 * cnt.get("Netral", 0)) / total * 100, 1)
 
-    st.markdown(ui.section("Hasil analisis", f"kata kunci: {meta.get('keyword','?')}", 3),
-                unsafe_allow_html=True)
-
-    # --- stat cards custom (bukan st.metric)
+    # --- KPI cards (Stitch style, mono numbers)
     st.markdown(ui.stats_row([
-        ui.stat("Total data", f"{total}", f"{len(df['source'].unique())} sumber", ui.BLUE,
-                icon("document", 15, ui.BLUE)),
-        ui.stat("Positif", f"{pct['Positif']}%", f"{cnt.get('Positif',0)} komentar",
-                ui.POSITIF, icon("trend-up", 15, ui.POSITIF)),
-        ui.stat("Netral", f"{pct['Netral']}%", f"{cnt.get('Netral',0)} komentar",
-                ui.NETRAL, icon("chart", 15, ui.NETRAL)),
-        ui.stat("Negatif", f"{pct['Negatif']}%", f"{cnt.get('Negatif',0)} komentar",
-                ui.NEGATIF, icon("trend-down", 15, ui.NEGATIF)),
-        ui.stat("GSS", f"{gss:.1f}", f"skor {skor:+.1f}", ui.GOLD_DARK,
-                icon("gauge", 15, ui.GOLD_DARK)),
+        ui.stat("Total teks dianalisis", f"{total:,}",
+                f"{df['source'].nunique()} sumber · {meta.get('keyword','?')}",
+                "analytics", ui.NAVY),
+        ui.stat("Net Sentiment Score", f"{skor:+.1f}",
+                f"GSS {gss:.1f}/100", "sentiment_very_satisfied",
+                ui.POS if skor >= 0 else ui.NEG),
+        ui.stat("Rasio Positif", f"{pct['Positif']:.1f}%",
+                f"{cnt.get('Positif', 0):,} komentar", "thumb_up", ui.NAVY),
+        ui.stat("Negatif Alert", f"{pct['Negatif']:.1f}%",
+                f"{cnt.get('Negatif', 0):,} komentar", "notification_important", ui.NEG),
     ]), unsafe_allow_html=True)
 
-    # --- distribution bar + insights, side by side dalam kartu
+    # --- distribution + insights (2 kolom)
     cc1, cc2 = st.columns([1, 1])
     with cc1:
         st.markdown(ui.card(
-            "Distribusi sentimen", "proporsi tiap label",
-            ui.sentiment_bar(pct), accent=ui.BLUE,
-            icon_svg=icon("chart", 17, ui.BLUE)), unsafe_allow_html=True)
+            "Distribusi Sentimen",
+            f"total {total:,} sample dianalisis",
+            ui.donut(pct, f"{skor:+.1f}", "Net Skor"),
+            icon_name="pie_chart"), unsafe_allow_html=True)
     with cc2:
-        insights_html = "".join(f'<div class="tsp-insight">{b}</div>'
-                                for b in build_insights(df, exclude=kw_terms))
+        bullets = build_insights(df, exclude=kw_terms)
         st.markdown(ui.card(
-            "Insight otomatis", "temuan utama dari data",
-            insights_html, accent=ui.GOLD_DARK,
-            icon_svg=icon("bulb", 17, ui.GOLD_DARK)), unsafe_allow_html=True)
+            "Insight Otomatis", "temuan utama dari data",
+            ui.insights_block(bullets) or
+            '<div class="tsp-card-desc">Belum cukup data.</div>',
+            icon_name="lightbulb"), unsafe_allow_html=True)
 
-    # --- contoh komentar per label (custom quote cards)
+    # --- live feed (Stitch table style, dalam expander native biar ringan)
     with st.expander("Contoh komentar per label", expanded=False):
         for lab in LABELS:
             sub = df[df["label"] == lab].sort_values("likes", ascending=False).head(2)
             if sub.empty:
                 continue
-            st.markdown(ui.section(f"{lab} ({cnt.get(lab,0)})", "", None),
+            st.markdown(f'<div class="tsp-sb-label">{ui.esc(lab)} · {cnt.get(lab, 0)} data</div>',
                         unsafe_allow_html=True)
             for _, r in sub.iterrows():
                 warn = " · skor rendah" if r["keyakinan"] == "ragu" else ""
                 st.markdown(ui.comment_card(
-                    f"{SOURCE_LABEL.get(r['source'], r['source'])} · {r.get('kategori','?')}",
+                    f"{SOURCE_LABEL.get(r['source'], r['source'])} · {r.get('kategori', '?')}",
                     str(r["text"])[:220],
                     f"likes {r['likes']} · skor {r['score']}{warn}",
-                    tone=ui.LABEL_COLOR.get(lab, ui.NETRAL)), unsafe_allow_html=True)
+                    tone=ui.LABEL_COLOR.get(lab, ui.NEU)), unsafe_allow_html=True)
 
     # --- data + filter
     with st.expander("Data + Filter", expanded=False):

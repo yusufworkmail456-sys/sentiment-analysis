@@ -1,5 +1,6 @@
-"""Page: AI Insight - exec summary, recommendations, chatbot (custom UI)."""
+"""Page: AI Insight - exec summary, recommendations, chatbot (Stitch UI)."""
 import streamlit as st
+import ui
 
 
 def page_ai():
@@ -13,27 +14,28 @@ def page_ai():
             continue
         _g.setdefault(_k, _v)
 
-    import ui
-
     df = st.session_state.get("df")
     meta = st.session_state.get("meta", {})
+
+    # ===== page head (Stitch) =====
+    chips = (ui.chip("auto_awesome", "AI Analysis Agent", "gold") +
+             ui.chip("verified", "Grounded on Data", "ok"))
+    actions = ui.btn("Generate AI Insights", "bolt", "primary")
+    st.markdown(ui.page_head(
+        "AI Insight",
+        "Analisis otomatis oleh Taspen Sentiment Platform Analysis Agent: "
+        "ringkasan eksekutif, rekomendasi tindakan, dan tanya jawab atas data terbaru.",
+        chips, actions), unsafe_allow_html=True)
 
     if df is None or df.empty:
         st.markdown(ui.empty_state(
             "Belum ada data",
-            "Jalankan analisis di halaman Scrape & Analisis dulu.",
-            icon("ai", 30, ic.C_MUTED)), unsafe_allow_html=True)
+            "Jalankan analisis di halaman Scrape &amp; Analisis dulu.", "psychology"),
+            unsafe_allow_html=True)
         return
 
-    # ===== generate button =====
-    btn_c1, btn_c2 = st.columns([3, 1])
-    with btn_c1:
-        st.markdown(
-            '<div class="tsp-aiintro">Analisis otomatis oleh Taspen Sentiment Platform '
-            'Analysis Agent atas data terbaru.</div>', unsafe_allow_html=True)
-    with btn_c2:
-        gen_btn = st.button("Generate AI Insights", type="primary",
-                            use_container_width=True, key="btn_all")
+    gen_btn = st.button("Generate AI Insights", type="primary",
+                        use_container_width=True, key="btn_all")
 
     if gen_btn:
         with st.spinner("Generating..."):
@@ -53,23 +55,23 @@ def page_ai():
     if ai_summary:
         st.markdown(ui.card(
             "Executive Summary", "ringkasan hasil analisis terkini",
-            f'<div class="tsp-md">{ai_summary}</div>', accent=ui.BLUE,
-            icon_svg=icon("note", 17, ui.BLUE)), unsafe_allow_html=True)
+            f'<div class="tsp-md">{ai_summary}</div>',
+            icon_name="description"), unsafe_allow_html=True)
     if ai_reco:
         st.markdown(ui.card(
             "Consideration & Rekomendasi", "langkah yang disarankan",
-            f'<div class="tsp-md">{ai_reco}</div>', accent=ui.GOLD_DARK,
-            icon_svg=icon("bulb", 17, ui.GOLD_DARK)), unsafe_allow_html=True)
+            f'<div class="tsp-md">{ai_reco}</div>',
+            icon_name="lightbulb"), unsafe_allow_html=True)
     if not ai_summary and not ai_reco:
         st.markdown(ui.empty_state(
             "Belum ada insight",
-            "Klik Generate AI Insights, atau tanya lewat chat di bawah.",
-            icon("sparkle", 28, ic.C_MUTED)), unsafe_allow_html=True)
+            "Klik Generate AI Insights, atau tanya lewat chat di bawah.", "sparkle"),
+            unsafe_allow_html=True)
 
     # ===== chatbot =====
-    st.markdown(ui.section("Tanya jawab", "chat dengan analysis agent", None),
-                unsafe_allow_html=True)
-    st.caption(f"{len(df)} data · keyword: {meta.get('keyword', '?')}")
+    st.markdown('<div class="tsp-sb-label" style="margin-top:8px;">Tanya jawab · '
+                'Analysis Agent</div>', unsafe_allow_html=True)
+    st.caption(f"{len(df):,} data · keyword: {meta.get('keyword', '?')}")
 
     if "chat_messages" not in st.session_state:
         st.session_state["chat_messages"] = []
@@ -100,7 +102,7 @@ def page_ai():
                         f'{ui.esc(msg["content"])}</div></div>', unsafe_allow_html=True)
         else:
             st.markdown(f'<div class="tsp-chat-row"><div class="tsp-chat-ai">'
-                        f'<div class="tsp-chat-ai-head">{icon("ai", 13, ui.BLUE)} '
+                        f'<div class="tsp-chat-ai-head">{ui.mt("psychology", 13, ui.NAVY)} '
                         f'Analysis Agent</div>'
                         f'<div class="tsp-md">{msg["content"]}</div></div></div>',
                         unsafe_allow_html=True)
@@ -131,7 +133,7 @@ def page_ai():
             with st.expander("Reasoning", expanded=False):
                 st.markdown(reasoning)
         st.markdown(f'<div class="tsp-chat-row"><div class="tsp-chat-ai">'
-                    f'<div class="tsp-chat-ai-head">{icon("ai", 13, ui.BLUE)} '
+                    f'<div class="tsp-chat-ai-head">{ui.mt("psychology", 13, ui.NAVY)} '
                     f'Analysis Agent</div>'
                     f'<div class="tsp-md">{content}</div></div></div>',
                     unsafe_allow_html=True)

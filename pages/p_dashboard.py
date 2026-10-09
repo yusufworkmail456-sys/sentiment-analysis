@@ -1,17 +1,15 @@
-"""Page: Dashboard - Visualization Overview.
+"""Page: Dashboard - Visualization Overview (Stitch layout).
 
-Charts sit inside st.container(border=True) cards, restyled by app.py CSS
-(.tsp-plotcard) so every plot is a real Taspen card.
+Charts sit inside st.container(border=True) cards restyled by app.py CSS.
 """
 import streamlit as st
+import ui
 
 
-def _head(icon_svg, title, desc):
+def _head(icon_name, title, desc):
     st.markdown(
-        f'<div class="tsp-card-head" style="--tsp-accent:#005d97;">'
-        f'<span class="tsp-card-ic">{icon_svg}</span><div>'
-        f'<div class="tsp-card-title">{title}</div>'
-        f'<div class="tsp-card-desc">{desc}</div></div></div>',
+        f'<div class="tsp-card-title">{ui.mt(icon_name, 18, ui.NAVY)} {ui.esc(title)}</div>'
+        f'<p class="tsp-card-desc">{ui.esc(desc)}</p>',
         unsafe_allow_html=True)
 
 
@@ -32,8 +30,8 @@ def page_dashboard():
     if df is None or df.empty:
         st.markdown(ui.empty_state(
             "Belum ada data",
-            "Jalankan scraping di halaman Scrape & Analisis dulu.",
-            icon("radar", 30, ic.C_MUTED)), unsafe_allow_html=True)
+            "Jalankan scraping di halaman Scrape & Analisis dulu.", "insights"),
+            unsafe_allow_html=True)
         return
 
     tr1, tr2 = st.columns([4, 1])
@@ -71,64 +69,66 @@ def page_dashboard():
         cat_neg = df[df["label"] == "Negatif"].groupby("kategori").size()
         cat_neg_pct = (cat_neg / cat_tot * 100).dropna()
         critical = cat_neg_pct[cat_neg_pct >= 50].sort_values(ascending=False)
-        alerts = [(f"{cat}: {v:.0f}% negatif", "danger") for cat, v in critical.items()]
+        alerts = [(f"{cat}: {v:.0f}% negatif", "neg") for cat, v in critical.items()]
         if alerts:
             st.markdown(ui.alert_row(alerts), unsafe_allow_html=True)
 
-    # === METRIC CARDS ===
+    # === KPI CARDS (Stitch: mono numbers + icon chip) ===
     st.markdown(ui.stats_row([
-        ui.stat("Total data", f"{total}", f"{df['source'].nunique()} sumber", ui.BLUE,
-                icon("document", 15, ui.BLUE)),
-        ui.stat("Positif", f"{pct['Positif']}%", f"{cnt.get('Positif', 0)} komentar",
-                ui.POSITIF, icon("trend-up", 15, ui.POSITIF)),
-        ui.stat("Netral", f"{pct['Netral']}%", f"{cnt.get('Netral', 0)} komentar",
-                ui.NETRAL, icon("chart", 15, ui.NETRAL)),
-        ui.stat("Negatif", f"{pct['Negatif']}%", f"{cnt.get('Negatif', 0)} komentar",
-                ui.NEGATIF, icon("trend-down", 15, ui.NEGATIF)),
-        ui.stat("GSS", f"{gss:.1f}", f"skor {skor:+.1f}", ui.GOLD_DARK,
-                icon("gauge", 15, ui.GOLD_DARK)),
+        ui.stat("Total teks dianalisis", f"{total:,}",
+                f"{df['source'].nunique()} sumber data", "analytics", ui.NAVY),
+        ui.stat("Net Sentiment Score", f"{skor:+.1f}",
+                f"GSS {gss:.1f}/100", "sentiment_very_satisfied",
+                ui.POS if skor >= 0 else ui.NEG),
+        ui.stat("Rasio Positif", f"{pct['Positif']:.1f}%",
+                f"{cnt.get('Positif', 0):,} komentar", "thumb_up", ui.NAVY),
+        ui.stat("Negatif Alert", f"{pct['Negatif']:.1f}%",
+                f"{cnt.get('Negatif', 0):,} komentar", "notification_important", ui.NEG),
     ]), unsafe_allow_html=True)
 
-    # === ROW 1: distribution bar + insights (custom cards) ===
-    c1, c2 = st.columns([1, 1])
+    # === ROW 1: donut distribusi + insight otomatis ===
+    c1, c2 = st.columns([2, 3])
     with c1:
-        st.markdown(ui.card("Distribusi sentimen", "proporsi tiap label",
-                            ui.sentiment_bar(pct), accent=ui.BLUE,
-                            icon_svg=icon("chart", 17, ui.BLUE)), unsafe_allow_html=True)
+        st.markdown(ui.card(
+            "Distribusi Sentimen",
+            f"total {total:,} sample dianalisis",
+            ui.donut(pct, f"{skor:+.1f}", "Net Skor"),
+            icon_name="pie_chart"), unsafe_allow_html=True)
     with c2:
-        insights_html = "".join(f'<div class="tsp-insight">{b}</div>'
-                                for b in build_insights(df, exclude=kw_terms))
-        st.markdown(ui.card("Insight otomatis", "temuan utama dari data",
-                            insights_html or '<div class="tsp-card-desc">Belum cukup data.</div>',
-                            accent=ui.GOLD_DARK,
-                            icon_svg=icon("bulb", 17, ui.GOLD_DARK)), unsafe_allow_html=True)
+        bullets = build_insights(df, exclude=kw_terms)
+        st.markdown(ui.card(
+            "Insight Otomatis", "temuan utama dari data",
+            ui.insights_block(bullets) or
+            '<div class="tsp-card-desc">Belum cukup data.</div>',
+            icon_name="lightbulb"), unsafe_allow_html=True)
 
-    # === ROW 2: GSS Gauge + ABSA Diverging ===
+    # === ROW 2: GSS gauge + per kategori ===
     r1c1, r1c2 = st.columns([1, 2])
     with r1c1:
         with st.container(border=True):
-            _head(icon("gauge", 18, ic.C_PRIMARY), "GSS Score", "Skor sentimen keseluruhan (0-100)")
+            _head("speed", "GSS Score", "Skor sentimen keseluruhan (0-100)")
             st.markdown(f"**{gss:.1f}/100** · Skor {skor:+.1f}")
             fig_gauge = go.Figure(go.Indicator(
                 mode="gauge+number", value=gss,
                 gauge={
                     "axis": {"range": [0, 100]},
-                    "bar": {"color": "#005d97"},
+                    "bar": {"color": ui.NAVY},
                     "steps": [
-                        {"range": [0, 40], "color": "#d64545"},
+                        {"range": [0, 40], "color": ui.NEG},
                         {"range": [40, 60], "color": "#e8a13a"},
-                        {"range": [60, 80], "color": "#e8c21d"},
-                        {"range": [80, 100], "color": "#1e9e6a"},
+                        {"range": [60, 80], "color": ui.GOLD},
+                        {"range": [80, 100], "color": ui.POS},
                     ],
-                    "threshold": {"line": {"color": "#004a7c", "width": 3},
+                    "threshold": {"line": {"color": ui.NAVY_DARK, "width": 3},
                                   "thickness": 0.75, "value": gss},
                 }))
-            fig_gauge.update_layout(height=210, margin=dict(t=10, b=5, l=10, r=10))
+            fig_gauge.update_layout(height=200, margin=dict(t=10, b=5, l=10, r=10),
+                                    paper_bgcolor="rgba(0,0,0,0)")
             st.plotly_chart(fig_gauge, use_container_width=True)
 
     with r1c2:
         with st.container(border=True):
-            _head(icon("chart", 18, ic.C_PRIMARY), "Sentiment per Kategori",
+            _head("category", "Sentiment per Kategori",
                   "Persentase positif vs negatif per kategori domain")
             if "kategori" in df.columns and df["kategori"].notna().any():
                 absa_data = df.groupby(["kategori", "label"]).size().unstack(fill_value=0)
@@ -140,25 +140,26 @@ def page_dashboard():
                 fig_absa = go.Figure()
                 fig_absa.add_trace(go.Bar(name="Positif %", y=list(absa_pct.index),
                                           x=absa_pct["Positif"].tolist(),
-                                          orientation="h", marker_color="#1e9e6a"))
+                                          orientation="h", marker_color=ui.POS))
                 fig_absa.add_trace(go.Bar(name="Negatif %", y=list(absa_pct.index),
                                           x=(-absa_pct["Negatif"]).tolist(),
-                                          orientation="h", marker_color="#d64545"))
-                fig_absa.update_layout(barmode="overlay", height=240,
+                                          orientation="h", marker_color=ui.NEG))
+                fig_absa.update_layout(barmode="overlay", height=230,
                                        margin=dict(t=5, b=5, l=5, r=5),
                                        xaxis_title="% Sentiment", showlegend=True,
                                        xaxis=dict(tickformat=",.0f", range=[-100, 100]),
                                        legend=dict(orientation="h", yanchor="bottom",
-                                                   y=1.02, xanchor="right", x=1))
+                                                   y=1.02, xanchor="right", x=1),
+                                       paper_bgcolor="rgba(0,0,0,0)")
                 st.plotly_chart(fig_absa, use_container_width=True)
             else:
                 st.info("Kolom kategori tidak tersedia.")
 
-    # === ROW 3: Per Sumber + Channel Scorecard ===
+    # === ROW 3: per sumber + channel scorecard ===
     r2c1, r2c2 = st.columns(2)
     with r2c1:
         with st.container(border=True):
-            _head(icon("dashboard", 18, ic.C_PRIMARY), "Persebaran per Sumber",
+            _head("dashboard", "Persebaran per Sumber",
                   "Komposisi sentimen tiap platform")
             src_data = df.groupby(["source", "label"]).size().unstack(fill_value=0)
             for lab in LABELS:
@@ -170,16 +171,17 @@ def page_dashboard():
             for lab in LABELS:
                 fig_bar.add_trace(go.Bar(name=lab, x=list(src_data.index),
                                          y=src_data[lab].tolist(),
-                                         marker_color=LABEL_COLOR[lab]))
-            fig_bar.update_layout(barmode="stack", height=240,
+                                         marker_color=ui.LABEL_COLOR[lab]))
+            fig_bar.update_layout(barmode="stack", height=230,
                                   margin=dict(t=5, b=5, l=5, r=5), showlegend=True,
                                   legend=dict(orientation="h", yanchor="bottom",
-                                              y=1.02, xanchor="right", x=1))
+                                              y=1.02, xanchor="right", x=1),
+                                  paper_bgcolor="rgba(0,0,0,0)")
             st.plotly_chart(fig_bar, use_container_width=True)
 
     with r2c2:
         with st.container(border=True):
-            _head(icon("trophy", 18, ic.C_PRIMARY), "Channel Scorecard",
+            _head("leaderboard", "Channel Scorecard",
                   "Ranking platform berdasarkan GSS")
             score_data = []
             for src, g in df.groupby("source"):
@@ -198,11 +200,11 @@ def page_dashboard():
             score_df.insert(0, "", ["#" + str(i + 1) for i in range(len(score_df))])
             st.dataframe(score_df, hide_index=True, use_container_width=True, height=180)
 
-    # === ROW 4: Top Terms Negatif + Viral Detection ===
+    # === ROW 4: top terms negatif + viral detection ===
     r3c1, r3c2 = st.columns([1, 2])
     with r3c1:
         with st.container(border=True):
-            _head(icon("clipboard", 18, ic.C_PRIMARY), "Top Terms Negatif",
+            _head("report", "Top Terms Negatif",
                   "Kata paling sering muncul di keluhan")
             neg_texts = df.loc[df["label"] == "Negatif", "text"].astype(str).tolist()
             if len(neg_texts) >= 3:
@@ -210,27 +212,29 @@ def page_dashboard():
                 if terms:
                     term_df = pd.DataFrame(terms, columns=["term", "count"])
                     fig_tt = px.bar(term_df, x="count", y="term", orientation="h",
-                                    color_discrete_sequence=["#d64545"])
-                    fig_tt.update_layout(height=250, showlegend=False,
+                                    color_discrete_sequence=[ui.NEG])
+                    fig_tt.update_layout(height=240, showlegend=False,
                                          margin=dict(t=5, b=5, l=5, r=5),
-                                         yaxis=dict(autorange="reversed"))
+                                         yaxis=dict(autorange="reversed"),
+                                         paper_bgcolor="rgba(0,0,0,0)")
                     st.plotly_chart(fig_tt, use_container_width=True)
             else:
                 st.info("Data negatif < 3.")
 
     with r3c2:
         with st.container(border=True):
-            _head(icon("broadcast", 18, ic.C_PRIMARY), "Viral Detection",
+            _head("trending_up", "Viral Detection",
                   "Post dengan engagement tinggi - priority response")
             fig_scatter = px.scatter(df, x="score", y="likes", color="label",
-                                     color_discrete_map=LABEL_COLOR,
+                                     color_discrete_map=ui.LABEL_COLOR,
                                      hover_data=["source", "text", "kategori"],
                                      size="likes", size_max=30)
-            fig_scatter.update_layout(height=250, margin=dict(t=5, b=5, l=5, r=5),
+            fig_scatter.update_layout(height=240, margin=dict(t=5, b=5, l=5, r=5),
                                       xaxis_title="Skor Sentimen",
                                       yaxis_title="Engagement (Likes)",
                                       legend=dict(orientation="h", yanchor="bottom",
-                                                  y=1.02, xanchor="right", x=1))
+                                                  y=1.02, xanchor="right", x=1),
+                                      paper_bgcolor="rgba(0,0,0,0)")
             st.plotly_chart(fig_scatter, use_container_width=True)
 
     # === Data Table + Download ===
