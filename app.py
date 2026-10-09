@@ -547,7 +547,7 @@ def export_pdf(df, meta, ai_summary=None, ai_reco=None):
     with open(out_path, "rb") as f:
         return f.read()
 # ================================================================ MAIN
-st.markdown('<div style="display:none"></div>')  # (header lama dihapus — diganti tsp-header brand)
+st.empty()  # placeholder: header brand dirender di atas
 
 # AI panel visibility: hidden (default) → narrow → wide
 _ai_state = st.session_state.get("ai_state", "hidden")  # hidden | narrow | wide
