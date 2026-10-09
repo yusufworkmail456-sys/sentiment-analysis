@@ -16,12 +16,24 @@ import ui
 st.set_page_config(page_title="Taspen Sentiment Platform", layout="wide",
                    page_icon="assets/taspen.svg")
 
-# fonts: Plus Jakarta Sans + JetBrains Mono + Material Symbols
+# fonts: self-hosted (server tak bisa akses fonts.googleapis) + Material Symbols CDN
+import pathlib as _pl
+_fdir = _pl.Path(__file__).parent / "assets" / "fonts"
+_fontcss = ""
+if (_fdir / "fonts.css").exists():
+    _fontcss = (_fdir / "fonts.css").read_text()
+st.markdown(f"""
+<style>
+  {_fontcss}
+  @font-face {{
+    font-family:'Material Symbols Outlined'; font-style:normal; font-weight:400;
+    src:url('assets/fonts/MaterialSymbolsOutlined.woff2') format('woff2');
+    font-display:block;
+  }}
+</style>
+""", unsafe_allow_html=True)
+
 st.markdown("""
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
-<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" rel="stylesheet">
 <style>
   :root {
     --navy: #004a7c; --navy-dark: #003a61; --blue: #005d97;
