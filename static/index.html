@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="id" class="bg-background">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Sentix AI – Sentiment Intelligence</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com"/>
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet"/>
+  <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" rel="stylesheet"/>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.plot.ly/plotly-2.32.0.min.js"></script>
+  <link rel="stylesheet" href="/static/css/app.css"/>
+  <script id="tailwind-config">
+    tailwind.config = {
+      darkMode: "class",
+      theme: {
+        extend: {
+          colors: {
+            primary:            "#3525cd",
+            secondary:          "#0058be",
+            tertiary:           "#005338",
+            "primary-container":"#4f46e5",
+            "secondary-container":"#2170e4",
+            "tertiary-container":"#006e4b",
+            "on-primary":       "#ffffff",
+            "on-secondary":     "#ffffff",
+            "on-tertiary":      "#ffffff",
+            "on-primary-fixed-variant": "#3323cc",
+            "on-secondary-fixed-variant": "#004395",
+            "on-tertiary-fixed-variant": "#005236",
+            "on-surface":       "#131b2e",
+            "on-surface-variant":"#464555",
+            "on-primary-fixed": "#0f0069",
+            "on-tertiary-fixed":"#002113",
+            "primary-fixed":    "#e2dfff",
+            "primary-fixed-dim":"#c3c0ff",
+            "secondary-fixed":  "#d8e2ff",
+            "secondary-fixed-dim":"#adc6ff",
+            "tertiary-fixed":   "#6ffbbe",
+            "tertiary-fixed-dim":"#4edea3",
+            surface:            "#faf8ff",
+            "surface-dim":      "#d2d9f4",
+            "surface-bright":   "#faf8ff",
+            "surface-container-lowest":"#ffffff",
+            "surface-container-low": "#f2f3ff",
+            "surface-container":     "#eaedff",
+            "surface-container-high":"#e2e7ff",
+            "surface-container-highest":"#dae2fd",
+            "surface-variant":  "#dae2fd",
+            "surface-tint":     "#4d44e3",
+            background:         "#faf8ff",
+            outline:            "#777587",
+            "outline-variant":  "#c7c4d8",
+            "inverse-surface":  "#283044",
+            "inverse-on-surface":"#eef0ff",
+            "inverse-primary":  "#c3c0ff",
+            error:              "#ba1a1a",
+            "on-error":         "#ffffff",
+            "error-container":  "#ffdad6",
+            "on-error-container":"#93000a",
+          }
+        }
+      }
+    };
+  </script>
+</head>
+<body class="bg-background font-sans text-on-surface antialiased min-h-screen" style="font-family:'Plus Jakarta Sans',sans-serif;">
+
+<!-- ═══════════════════════════ SIDEBAR ═══════════════════════════ -->
+<aside id="sidebar" class="fixed left-0 top-0 h-full w-72 bg-surface-container-lowest z-50 flex flex-col shadow-[0_1px_8px_rgba(0,0,0,0.04)] border-r border-outline-variant/30 transition-transform duration-200">
+
+  <!-- Brand -->
+  <div class="h-16 px-5 flex items-center gap-3 border-b border-outline-variant/20">
+    <img src="/assets/taspen.svg" alt="Sentix" class="h-8 w-auto object-contain"
+         onerror="this.style.display='none';document.getElementById('brand-fallback').style.display='flex'"/>
+    <div id="brand-fallback" style="display:none" class="w-8 h-8 rounded-lg bg-primary flex items-center justify-center text-on-primary font-bold text-sm">S</div>
+    <div class="flex flex-col">
+      <span class="text-[15px] font-extrabold text-on-surface tracking-tight leading-none">Sentix AI</span>
+      <span class="text-[11px] font-medium text-on-surface-variant mt-0.5">Sentiment Intelligence</span>
+    </div>
+  </div>
+
+  <!-- Engine status -->
+  <div class="px-4 py-2">
+    <div class="px-3 py-2 rounded-lg bg-surface-container-low flex items-center justify-between">
+      <div class="flex items-center gap-2">
+        <span class="w-2 h-2 rounded-full bg-tertiary-container animate-pulse"></span>
+        <span class="text-[12px] font-semibold text-on-surface">Engine Online</span>
+      </div>
+      <span class="text-[11px] font-mono font-bold text-tertiary bg-tertiary-fixed px-1.5 py-0.5 rounded" id="engine-model">RoBERTa</span>
+    </div>
+  </div>
+
+  <div class="px-5 py-1">
+    <span class="text-[10px] font-extrabold uppercase tracking-widest text-outline">Analytics Workspaces</span>
+  </div>
+
+  <!-- Nav -->
+  <nav class="flex-1 px-3 py-1 flex flex-col gap-1">
+    <a href="#" class="nav-link active" data-page="scrape">
+      <span class="material-symbols-outlined text-[20px]">radar</span>
+      <span>Scrape &amp; Analisis</span>
+    </a>
+    <a href="#" class="nav-link" data-page="dashboard">
+      <span class="material-symbols-outlined text-[20px]">insights</span>
+      <span>Dashboard</span>
+    </a>
+    <a href="#" class="nav-link" data-page="ai">
+      <span class="material-symbols-outlined text-[20px]">auto_awesome</span>
+      <span>AI Insight</span>
+    </a>
+  </nav>
+
+  <!-- Sidebar footer: volume meter -->
+  <div class="p-4 border-t border-outline-variant/20">
+    <div class="p-3 rounded-xl bg-surface-container-low flex flex-col gap-2">
+      <div class="flex items-center justify-between">
+        <span class="text-[12px] font-semibold text-on-surface">Data Teranalisis</span>
+        <span class="text-[11px] font-mono text-on-surface-variant" id="sb-volume">0 baris</span>
+      </div>
+      <div class="w-full h-1.5 rounded-full bg-surface-container-highest overflow-hidden">
+        <div class="h-full bg-primary rounded-full transition-all duration-500" id="sb-meter" style="width:0%"></div>
+      </div>
+      <div class="text-[11px] text-on-surface-variant" id="sb-keyword">—</div>
+    </div>
+  </div>
+</aside>
+
+<!-- ═══════════════════════════ MAIN ══════════════════════════════ -->
+<div class="pl-72 flex flex-col min-h-screen">
+
+  <!-- Top bar -->
+  <header class="fixed top-0 left-72 right-0 h-16 bg-surface-container-lowest/90 backdrop-blur-xl shadow-[0_1px_8px_rgba(0,0,0,0.04)] z-40 flex items-center justify-between px-6 border-b border-outline-variant/20">
+    <div class="flex items-center gap-3">
+      <div>
+        <div class="text-[15px] font-extrabold text-on-surface" id="topbar-title">Scrape &amp; Analisis</div>
+        <div class="text-[11px] text-on-surface-variant" id="topbar-desc">Kumpulkan data dari 6 platform lalu analisis sentimennya</div>
+      </div>
+    </div>
+    <div class="flex items-center gap-4">
+      <div class="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-surface-container-low">
+        <div class="w-2 h-2 rounded-full bg-tertiary-container" id="status-dot"></div>
+        <span class="text-[12px] font-mono font-medium text-on-surface" id="status-text">Siap</span>
+      </div>
+    </div>
+  </header>
+
+  <!-- Page content -->
+  <main class="pt-20 px-6 pb-8 flex-1 bg-background" id="page-content">
+    <!-- injected by JS router -->
+  </main>
+
+</div>
+
+<!-- Toast container -->
+<div id="toast-container" class="fixed bottom-6 right-6 flex flex-col gap-2 z-[9999]"></div>
+
+<script src="/static/js/app.js"></script>
+<script src="/static/js/scrape.js"></script>
+<script src="/static/js/dashboard.js"></script>
+<script src="/static/js/ai.js"></script>
+</body>
+</html>

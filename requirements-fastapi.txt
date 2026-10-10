@@ -1,0 +1,35 @@
+# Sentix AI – FastAPI stack
+# Install: pip install -r requirements-fastapi.txt
+
+# Web framework
+fastapi==0.111.0
+uvicorn[standard]==0.29.0
+python-multipart==0.0.9
+
+# HTTP client (for LLM calls)
+httpx==0.27.0
+
+# Data & ML
+pandas==2.2.2
+transformers==4.40.2
+torch==2.3.0
+sentencepiece==0.2.0
+
+# Scraping
+requests==2.32.2
+feedparser==6.0.11
+trafilatura==1.9.0
+yt-dlp==2024.5.27
+youtube-comment-downloader==0.1.68
+instagrapi==2.0.0
+google-play-scraper==1.2.4
+playwright==1.44.0
+TikTokApi==6.4.1
+
+# Charts / PDF export
+plotly==5.22.0
+kaleido==0.2.1
+fpdf2==2.7.9
+
+# Config / env
+python-dotenv==1.0.1

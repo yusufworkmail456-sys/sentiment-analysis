@@ -354,3 +354,237 @@ def main() -> int:
 
 if __name__ == "__main__":
     sys.exit(main())
+
+
+# ---------------------------------------------------------------- Scrape per URL
+def scrape_url_ig(url, max_comments=100, log=print):
+    """Scrape comments from a single Instagram post URL."""
+    from ig_web_scraper import _load_session_id, _make_session, _get_comments
+    import re as _re
+
+    sid, username = _load_session_id()
+    if not sid:
+        raise RuntimeError("IG butuh login: paste session_id di form Kredensial")
+
+    session = _make_session(sid, username)
+
+    # Extract shortcode from URL
+    match = _re.search(r"/(?:p|reel)/([A-Za-z0-9_-]+)", url)
+    if not match:
+        raise RuntimeError(f"URL tidak valid: {url}")
+    shortcode = match.group(1)
+
+    # Get media_id from shortcode using GraphQL
+    try:
+        r = session.get(
+            f"https://www.instagram.com/api/v1/media/shortcode/{shortcode}/",
+            timeout=15)
+        if r.status_code != 200:
+            raise RuntimeError(f"IG: tidak bisa ambil media_id (HTTP {r.status_code})")
+        data = r.json()
+        post_id = data.get("pk") or data.get("id", "")
+    except RuntimeError:
+        raise
+    except Exception as e:
+        raise RuntimeError(f"IG: gagal ambil info post: {e}")
+
+    if not post_id:
+        raise RuntimeError("IG: media_id tidak ditemukan")
+
+    return _get_comments(session, str(post_id), shortcode=shortcode,
+                         max_comments=max_comments, log=log)
+
+
+def scrape_url_yt(url, max_comments=100, log=print):
+    """Scrape comments from a single YouTube video URL."""
+    from youtube_comment_downloader import YoutubeCommentDownloader, SORT_BY_RECENT
+    from datetime import datetime, timezone
+
+    dl = YoutubeCommentDownloader()
+    rows = []
+    try:
+        for c in dl.get_comments_from_url(url, sort_by=SORT_BY_RECENT):
+            t = (c.get("text") or "").replace("\n", " ").strip()
+            if not t:
+                continue
+            tp = c.get("time_parsed")
+            if isinstance(tp, (int, float)) and tp:
+                date = datetime.fromtimestamp(tp, tz=timezone.utc).isoformat()
+            elif hasattr(tp, "isoformat"):
+                date = tp.isoformat()
+            else:
+                date = ""
+            rows.append({
+                "source": "youtube",
+                "text": t,
+                "author": c.get("author", "") or "",
+                "date": date,
+                "likes": c.get("votes", 0) or 0,
+                "url": url,
+            })
+            log(f"YT URL: {len(rows)} komentar")
+            if len(rows) >= max_comments:
+                break
+    except Exception as e:
+        raise RuntimeError(f"YT: gagal scrape URL: {e}")
+    return rows
+
+
+def scrape_url_facebook(url, max_comments=100, log=print):
+    """Scrape a single Facebook post URL via Playwright."""
+    from scrapers_extra import _load_session, _parse_cookie_str
+    from playwright.sync_api import sync_playwright, TimeoutError as PWTimeout
+
+    session = _load_session("facebook")
+    if not session:
+        raise RuntimeError("Facebook belum dikonfigurasi.")
+    cookie_str = session.get("cookie", "")
+    if not cookie_str:
+        raise RuntimeError("Cookie Facebook kosong.")
+
+    cookies = _parse_cookie_str(cookie_str)
+    if "c_user" not in cookies or "xs" not in cookies:
+        raise RuntimeError("Cookie tidak lengkap (butuh c_user + xs).")
+
+    rows = []
+    with sync_playwright() as p:
+        browser = p.chromium.launch(headless=True)
+        context = browser.new_context(
+            user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
+                       "(KHTML, like Gecko) Chrome/124.0 Safari/537.36",
+            viewport={"width": 1280, "height": 1024},
+        )
+        pw_cookies = [
+            {"name": k, "value": v, "domain": ".facebook.com", "path": "/"}
+            for k, v in cookies.items()
+        ]
+        context.add_cookies(pw_cookies)
+        page = context.new_page()
+        try:
+            page.goto(url, timeout=30000, wait_until="domcontentloaded")
+        except PWTimeout:
+            browser.close()
+            raise RuntimeError("Facebook: timeout loading page")
+
+        page.wait_for_timeout(5000)
+        # Expand comments
+        for _ in range(5):
+            btns = page.query_selector_all('[role="button"]:has-text("View more comments")')
+            if not btns:
+                break
+            for b in btns[:3]:
+                try:
+                    b.click(timeout=3000)
+                    page.wait_for_timeout(1200)
+                except Exception:
+                    pass
+
+        # Extract comments
+        comment_els = page.query_selector_all('[aria-label="Comment"]')
+        for el in comment_els:
+            if len(rows) >= max_comments:
+                break
+            try:
+                text = el.inner_text().strip().replace("\n", " ")
+                if len(text) < 5:
+                    continue
+                rows.append({
+                    "source": "facebook",
+                    "text": text[:3000],
+                    "author": "",
+                    "date": "",
+                    "likes": 0,
+                    "url": url,
+                })
+            except Exception:
+                continue
+        browser.close()
+    log(f"Facebook URL: {len(rows)} komentar")
+    return rows
+
+
+def scrape_url_tiktok(url, max_comments=100, log=print):
+    """Scrape comments from a single TikTok video URL."""
+    from scrapers_extra import _load_session
+    from datetime import datetime, timezone
+    import asyncio
+
+    session = _load_session("tiktok")
+    if not session:
+        raise RuntimeError("TikTok belum dikonfigurasi.")
+    ms_token = session.get("ms_token", "")
+    if not ms_token:
+        raise RuntimeError("ms_token TikTok kosong.")
+
+    # Extract video ID from URL
+    import re as _re
+    match = _re.search(r"/video/(\d+)", url)
+    if not match:
+        raise RuntimeError(f"URL TikTok tidak valid: {url}")
+    video_id = match.group(1)
+
+    rows = []
+    try:
+        from TikTokApi import TikTokApi
+
+        async def _run():
+            async with TikTokApi() as api:
+                await api.create(ms_token=ms_token, num_retries=2)
+                video = api.video(id=video_id)
+                async for c in video.comments(count=max_comments):
+                    ct = (c.text or "").strip().replace("\n", " ")
+                    if len(ct) < 3:
+                        continue
+                    rows.append({
+                        "source": "tiktok",
+                        "text": ct[:3000],
+                        "author": c.user.nickname or "",
+                        "date": "",
+                        "likes": c.likes_count or 0,
+                        "url": url,
+                    })
+                    log(f"TikTok URL: {len(rows)} komentar")
+                    if len(rows) >= max_comments:
+                        break
+
+        asyncio.run(_run())
+    except Exception as e:
+        raise RuntimeError(f"TikTok: gagal scrape URL: {e}")
+    return rows
+
+
+def scrape_url_web(url, max_comments=1, log=print):
+    """Fetch and extract text from a single web/news article URL."""
+    import trafilatura
+    from datetime import datetime, timezone
+
+    try:
+        r = _http_get(url, allow_redirects=True)
+        html = r.text
+        final_url = r.url
+    except Exception as e:
+        raise RuntimeError(f"Web: gagal fetch URL: {e}")
+
+    text = trafilatura.extract(html, url=final_url, include_comments=False) or ""
+    text = " ".join(text.split())
+    if len(text) < 100:
+        raise RuntimeError("Web: konten terlalu pendek atau tidak bisa diekstrak.")
+
+    log(f"Web URL: {len(text)} karakter diambil")
+    return [{
+        "source": "web",
+        "text": text[:6000],
+        "author": "",
+        "date": datetime.now(tz=timezone.utc).isoformat(),
+        "likes": 0,
+        "url": final_url,
+    }]
+
+
+URL_SCRAPERS = {
+    "instagram": scrape_url_ig,
+    "youtube": scrape_url_yt,
+    "facebook": scrape_url_facebook,
+    "tiktok": scrape_url_tiktok,
+    "web": scrape_url_web,
+}
