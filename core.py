@@ -271,6 +271,10 @@ def chat_completion_sync(messages, temperature=0.4, max_tokens=2000):
 
 def generate_executive_summary(df, meta):
     context = build_sentiment_context(df, meta)
+    return generate_executive_summary_from_context(context, meta)
+
+
+def generate_executive_summary_from_context(context, meta):
     messages = [
         {"role": "system", "content": (
             "Kamu adalah Senior Sentiment Analyst. "
@@ -287,6 +291,10 @@ def generate_executive_summary(df, meta):
 
 def generate_recommendations(df, meta):
     context = build_sentiment_context(df, meta)
+    return generate_recommendations_from_context(context, meta)
+
+
+def generate_recommendations_from_context(context, meta):
     messages = [
         {"role": "system", "content": (
             "Kamu adalah Strategic Advisor. "

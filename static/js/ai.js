@@ -1,23 +1,11 @@
 /* ═══════════════════════════════════════════
    Taspen Sentiment Platform – AI Insight page
-══════════════════════════════════════════ */
+   Mode konteks: session (scrape terakhir) | historical (database kumulatif)
+═══════════════════════════════════════════ */
 
 window.renderAI = function () {
   const el = document.getElementById('page-content');
-
-  if (!App.state.rows.length) {
-    el.innerHTML = `
-<div class="empty-state">
-  <span class="material-symbols-outlined empty-state-icon">auto_awesome</span>
-  <div class="empty-state-title">Belum ada data</div>
-  <div class="empty-state-desc">Jalankan analisis di halaman Scrape &amp; Analisis dulu.</div>
-</div>`;
-    return;
-  }
-
-  const rows = App.state.rows;
-  const meta = App.state.meta;
-  const st   = computeStats(rows);
+  const hasSession = !!App.state.rows.length;
 
   el.innerHTML = `
 <!-- Page header -->
@@ -29,7 +17,8 @@ window.renderAI = function () {
     </div>
     <h1 class="text-[22px] font-extrabold text-on-surface tracking-tight">AI Insight</h1>
     <p class="text-[13px] text-on-surface-variant mt-1 max-w-2xl">
-      Analisis otomatis oleh Taspen Sentiment Analysis Agent: ringkasan eksekutif, rekomendasi tindakan, dan tanya jawab atas data terbaru.
+      Analisis otomatis oleh Taspen Sentiment Analysis Agent: ringkasan eksekutif, rekomendasi tindakan, dan tanya jawab.
+      Pilih sumber konteks di bawah — snapshot scrape terakhir atau seluruh database historis.
     </p>
   </div>
   <button class="btn btn-primary" id="btn-gen-all" onclick="generateAll()">
@@ -37,13 +26,26 @@ window.renderAI = function () {
   </button>
 </div>
 
-<!-- Context summary -->
-<div class="grid grid-cols-2 xl:grid-cols-4 gap-3 mb-5">
-  ${kpiCard('Keyword',      esc(meta.keyword||'—'),   `mode: ${meta.mode||'?'}`,      'search',                  '#005d97')}
-  ${kpiCard('Total Data',   fmt(st.total),              `${[...new Set(rows.map(r=>r.source))].length} sumber`,  'analytics',               '#1e9e6a')}
-  ${kpiCard('Net Sentiment Score', `${st.skor>=0?'+':''}${st.skor.toFixed(1)}`, `GSS ${st.gss.toFixed(1)}/100`, 'sentiment_very_satisfied', st.skor>=0?'#1e9e6a':'#d64545')}
-  ${kpiCard('Durasi Scrape', `${meta.durasi||'?'}s`,   `${meta.stamp||''}`,            'timer',                   '#005d97')}
+<!-- Source selector -->
+<div class="section-card mb-4" id="ai-mode-card">
+  <div class="section-title mb-3"><span class="material-symbols-outlined">tune</span> Sumber Konteks AI</div>
+  <div class="flex flex-wrap items-center gap-2" id="ai-mode-toggle">
+    <button class="chip chip-primary cursor-pointer" data-mode="session" onclick="aiSetMode('session')">
+      <span class="material-symbols-outlined text-[13px]">bolt</span> Scrape Terakhir
+      ${hasSession ? '' : ' (kosong)'}
+    </button>
+    <button class="chip cursor-pointer" data-mode="historical" onclick="aiSetMode('historical')">
+      <span class="material-symbols-outlined text-[13px]">storage</span> Database Historis
+    </button>
+    <select class="form-select" id="ai-kw" style="max-width:180px;display:none;" onchange="aiModeChanged()">
+      <option value="">Semua keyword</option>
+    </select>
+  </div>
+  <p class="text-[12px] text-on-surface-variant mt-2" id="ai-mode-desc"></p>
 </div>
+
+<!-- Context summary (session mode) -->
+<div id="ai-session-kpis"></div>
 
 <!-- AI Summary -->
 <div class="section-card mb-4" id="card-summary">
@@ -54,12 +56,10 @@ window.renderAI = function () {
     </button>
   </div>
   <div id="ai-summary-body">
-    ${App.state.aiSummary
-      ? `<div class="chat-md">${renderMd(App.state.aiSummary)}</div>`
-      : `<div class="empty-state" style="padding:24px;">
-           <span class="material-symbols-outlined empty-state-icon" style="font-size:28px;">description</span>
-           <div class="empty-state-desc">Klik Generate untuk membuat ringkasan eksekutif.</div>
-         </div>`}
+    <div class="empty-state" style="padding:24px;">
+      <span class="material-symbols-outlined empty-state-icon" style="font-size:28px;">description</span>
+      <div class="empty-state-desc">Klik Generate untuk membuat ringkasan eksekutif.</div>
+    </div>
   </div>
 </div>
 
@@ -72,12 +72,10 @@ window.renderAI = function () {
     </button>
   </div>
   <div id="ai-reco-body">
-    ${App.state.aiReco
-      ? `<div class="chat-md">${renderMd(App.state.aiReco)}</div>`
-      : `<div class="empty-state" style="padding:24px;">
-           <span class="material-symbols-outlined empty-state-icon" style="font-size:28px;">lightbulb</span>
-           <div class="empty-state-desc">Klik Generate untuk membuat rekomendasi strategis.</div>
-         </div>`}
+    <div class="empty-state" style="padding:24px;">
+      <span class="material-symbols-outlined empty-state-icon" style="font-size:28px;">lightbulb</span>
+      <div class="empty-state-desc">Klik Generate untuk membuat rekomendasi strategis.</div>
+    </div>
   </div>
 </div>
 
@@ -85,16 +83,18 @@ window.renderAI = function () {
 <div class="section-card">
   <div class="section-title mb-3">
     <span class="material-symbols-outlined">psychology</span> Tanya Jawab · Analysis Agent
-    <span class="text-[12px] font-normal text-on-surface-variant ml-2">${fmt(rows.length)} data · keyword: ${esc(meta.keyword||'?')}</span>
+    <span class="text-[12px] font-normal text-on-surface-variant ml-2" id="chat-scope"></span>
   </div>
 
   <!-- Quick prompts -->
   <div class="flex flex-wrap gap-2 mb-3">
     ${[
-      ['Ringkasan sentimen',    'Beri ringkasan singkat hasil sentiment ini.'],
-      ['Kenapa banyak negatif?','Analisis kenapa sentimen negatif tinggi. Keluhan utama?'],
-      ['Rekomendasi tindakan',  'Beri rekomendasi actionable berdasarkan hasil sentiment ini.'],
-      ['Perbandingan sumber',   'Bagaimana perbandingan sentimen antar sumber?'],
+      ['Ringkasan sentimen',      'Beri ringkasan singkat hasil sentiment ini.'],
+      ['Kenapa banyak negatif?',  'Analisis kenapa sentimen negatif tinggi. Keluhan utama?'],
+      ['Rekomendasi tindakan',    'Beri rekomendasi actionable berdasarkan hasil sentiment ini.'],
+      ['Perbandingan sumber',     'Bagaimana perbandingan sentimen antar sumber?'],
+      ['Tren antar waktu',        'Bagaimana tren sentimen antar waktu? Ada perubahan signifikan?'],
+      ['Pihak terkait',           'Pihak/entitas apa yang paling sering muncul dan dalam konteks apa?'],
     ].map(([label, prompt]) =>
       `<button class="chip chip-primary cursor-pointer hover:opacity-80" onclick="quickPrompt(${JSON.stringify(prompt)})">${esc(label)}</button>`
     ).join('')}
@@ -118,7 +118,78 @@ window.renderAI = function () {
   </div>
 </div>
 `;
+
+  // Keyword options untuk mode historical
+  apiGet('/api/analytics/keywords').then(d => {
+    const sel = document.getElementById('ai-kw');
+    if (sel && d.ok) {
+      sel.innerHTML = '<option value="">Semua keyword</option>' +
+        d.keywords.map(k => `<option value="${esc(k)}">${esc(k)}</option>`).join('');
+    }
+  }).catch(() => {});
+
+  // Restore mode sebelumnya
+  aiSetMode(App.state.aiMode || 'session');
 };
+
+// ── Mode konteks ───────────────────────────────────
+window.aiSetMode = function (mode) {
+  App.state.aiMode = mode;
+  document.querySelectorAll('#ai-mode-toggle [data-mode]').forEach(btn => {
+    const active = btn.dataset.mode === mode;
+    btn.classList.toggle('chip-primary', active);
+  });
+  const sel = document.getElementById('ai-kw');
+  if (sel) sel.style.display = mode === 'historical' ? '' : 'none';
+  const desc = document.getElementById('ai-mode-desc');
+  if (desc) {
+    desc.textContent = mode === 'historical'
+      ? 'AI menganalisis seluruh database historis (kumulatif, dedup global): tren GSS antar run, distribusi per sumber, entitas, sampel komentar.'
+      : 'AI menganalisis snapshot scrape terakhir di sesi ini. Pilih mode Database Historis untuk analisis kumulatif lintas waktu.';
+  }
+  aiRenderSessionKpis();
+  aiModeChanged();
+};
+
+function aiModeChanged() {
+  const scope = document.getElementById('chat-scope');
+  const mode = App.state.aiMode || 'session';
+  const kw = document.getElementById('ai-kw')?.value || '';
+  if (scope) {
+    scope.textContent = mode === 'historical'
+      ? `database historis${kw ? ' · ' + kw : ' · semua keyword'}`
+      : `${fmt(App.state.rows.length)} data scrape terakhir`;
+  }
+}
+
+function aiRenderSessionKpis() {
+  const wrap = document.getElementById('ai-session-kpis');
+  if (!wrap) return;
+  const mode = App.state.aiMode || 'session';
+  if (mode !== 'session' || !App.state.rows.length) { wrap.innerHTML = ''; return; }
+  const rows = App.state.rows;
+  const meta = App.state.meta;
+  const st   = computeStats(rows);
+  wrap.innerHTML = `
+<div class="grid grid-cols-2 xl:grid-cols-4 gap-3 mb-4">
+  ${kpiCard('Keyword',             esc(meta.keyword||'—'),     `mode: ${meta.mode||'?'}`,                 'search',                   '#005d97')}
+  ${kpiCard('Total Data',          fmt(st.total),              `${[...new Set(rows.map(r=>r.source))].length} sumber`, 'analytics',    '#1e9e6a')}
+  ${kpiCard('Net Sentiment Score', `${st.skor>=0?'+':''}${st.skor.toFixed(1)}`, `GSS ${st.gss.toFixed(1)}/100`, 'sentiment_very_satisfied', st.skor>=0?'#1e9e6a':'#d64545')}
+  ${kpiCard('Durasi Scrape',       `${meta.durasi||'?'}s`,     `${meta.stamp||''}`,                        'timer',                    '#005d97')}
+</div>`;
+}
+
+// ── Payload helper ─────────────────────────────────
+function aiPayload() {
+  const mode = App.state.aiMode || 'session';
+  const kw   = document.getElementById('ai-kw')?.value || '';
+  return {
+    mode,
+    keyword: kw || null,
+    rows: mode === 'session' ? App.state.rows : [],
+    meta: mode === 'session' ? App.state.meta : {},
+  };
+}
 
 // ── Generate all ───────────────────────────────────
 async function generateAll() {
@@ -135,7 +206,7 @@ async function genSummary() {
   if (body_el) body_el.innerHTML = '<div class="flex items-center gap-2 p-4"><div class="spinner"></div> <span class="text-[13px] text-on-surface-variant">Generating executive summary...</span></div>';
   if (btn) btn.disabled = true;
   try {
-    const d = await apiPost('/api/ai/summary', { rows: App.state.rows, meta: App.state.meta });
+    const d = await apiPost('/api/ai/summary', aiPayload());
     if (!d.ok) throw new Error(d.error || 'Gagal');
     App.state.aiSummary = d.content;
     if (body_el) body_el.innerHTML = `<div class="chat-md">${renderMd(d.content)}</div>`;
@@ -155,7 +226,7 @@ async function genReco() {
   if (body_el) body_el.innerHTML = '<div class="flex items-center gap-2 p-4"><div class="spinner"></div> <span class="text-[13px] text-on-surface-variant">Generating recommendations...</span></div>';
   if (btn) btn.disabled = true;
   try {
-    const d = await apiPost('/api/ai/recommendations', { rows: App.state.rows, meta: App.state.meta });
+    const d = await apiPost('/api/ai/recommendations', aiPayload());
     if (!d.ok) throw new Error(d.error || 'Gagal');
     App.state.aiReco = d.content;
     if (body_el) body_el.innerHTML = `<div class="chat-md">${renderMd(d.content)}</div>`;
@@ -191,8 +262,7 @@ async function sendChat() {
 
   try {
     const d = await apiPost('/api/ai/chat', {
-      rows:       App.state.rows,
-      meta:       App.state.meta,
+      ...aiPayload(),
       messages:   App.state.chatHistory.slice(0, -1),  // history before current
       user_input: text,
     });

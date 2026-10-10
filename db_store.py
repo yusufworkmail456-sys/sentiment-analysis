@@ -354,3 +354,98 @@ def backfill_csv(csv_path: str, keyword: str) -> dict:
                   (gss, round(pos - neg, 2), pos, neu, neg, new_count, dup_count,
                    json.dumps(per_src), run_id))
     return {"run_id": run_id, "rows": len(rows), "new": new_count, "dup": dup_count}
+
+
+def historical_context(keyword=None, sample_n=25) -> str:
+    """Context teks untuk LLM dari seluruh DB historis (token-aman, agregat + sampel).
+
+    Isi: statistik umum, tren GSS antar run, distribusi sentimen per sumber,
+    top entitas, top kategori, sampel komentar negatif/positif, topik kata.
+    """
+    import re as _re
+    from collections import Counter
+    from core import LABELS, top_terms
+
+    init_db()
+    kw_clause, kw_params = "", []
+    if keyword:
+        kw_clause = " WHERE keyword = ?"
+        kw_params = [keyword]
+    parts = ["=== KONTEKS SENTIMENT HISTORIS (database kumulatif, dedup global) ==="]
+    with _conn() as c:
+        # Ringkasan umum
+        runs = c.execute(f"SELECT id, ts, keyword, gss, nss, pos, neu, neg, new_count, dup_count, sources_json FROM scrape_runs{kw_clause} ORDER BY ts_epoch", kw_params).fetchall()
+        total_rows = c.execute(f"SELECT COUNT(*) AS n FROM comments{kw_clause}", kw_params).fetchone()["n"]
+        dated = c.execute(f"SELECT COUNT(*) AS n FROM comments{kw_clause} {'AND' if kw_clause else 'WHERE'} date_epoch IS NOT NULL", kw_params).fetchone()["n"]
+        bots = c.execute(f"SELECT COUNT(*) AS n FROM comments{kw_clause} {'AND' if kw_clause else 'WHERE'} is_bot_suspect=1", kw_params).fetchone()["n"]
+        parts.append(f"Keyword filter: {keyword or 'semua'} | Run tercatat: {len(runs)} | Komentar unik: {total_rows} | Dengan tanggal: {dated} | Dugaan bot: {bots}")
+        if not runs:
+            parts.append("Database kosong.")
+            return "\n".join(parts)
+
+        # Tren GSS antar run (maks 40 titik terakhir biar token aman)
+        sub = runs[-40:]
+        parts.append("\nTren GSS antar run (waktu → GSS, pos/neu/neg):")
+        for r in sub:
+            parts.append(f"  {r['ts'][:16]} | GSS {r['gss']:.1f} | P {r['pos']}/N {r['neu']}/Neg {r['neg']} | +{r['new_count']} baru/{r['dup_count']} dup")
+
+        # Distribusi per sumber
+        per_src = {}
+        for r in runs:
+            try:
+                for s, d in json.loads(r["sources_json"] or "{}").items():
+                    per_src.setdefault(s, Counter()).update(d)
+            except Exception:
+                pass
+        if per_src:
+            parts.append("\nDistribusi sentimen kumulatif per sumber:")
+            for s, ctr in per_src.items():
+                tot = sum(ctr.values())
+                parts.append(f"  {s}: total {tot} → P {ctr.get('Positif',0)}, N {ctr.get('Netral',0)}, Neg {ctr.get('Negatif',0)}")
+
+        # Top entitas & kategori
+        for col, title in [("entity_mentions", "Top entitas/pihak terkait"), ("entity_categories", "Kategori entitas")]:
+            cnt = Counter()
+            for row in c.execute(f"SELECT {col} AS v FROM comments{kw_clause}{' AND' if kw_clause else ' WHERE'} {col} != ''", kw_params):
+                for e in str(row["v"]).split(","):
+                    e = e.strip()
+                    if e:
+                        cnt[e] += 1
+            if cnt:
+                parts.append(f"\n{title}: " + ", ".join(f"{k}({v})" for k, v in cnt.most_common(12)))
+
+        # Kategori × sentimen
+        cat = c.execute(f"""SELECT kategori AS k, label AS l, COUNT(*) AS n FROM comments{kw_clause}
+                            GROUP BY kategori, label ORDER BY n DESC LIMIT 40""", kw_params).fetchall()
+        if cat:
+            parts.append("\nKategori × sentimen (atas):")
+            for r in cat[:14]:
+                parts.append(f"  {r['k']}: {r['l']} = {r['n']}")
+
+        # Sampel komentar (negatif & positif teratas)
+        for lab, title in [("Negatif", "Sampel komentar NEGATIF"), ("Positif", "Sampel komentar POSITIF")]:
+            rows = c.execute(f"""SELECT text, author, source, likes FROM comments{kw_clause}
+                                 {'AND' if kw_clause else 'WHERE'} label = ?
+                                 ORDER BY likes DESC, first_seen DESC LIMIT ?""",
+                             kw_params + [lab, sample_n]).fetchall()
+            if rows:
+                parts.append(f"\n{title} (by engagement):")
+                for r in rows[:sample_n]:
+                    parts.append(f"  [{r['source']}] ({r['author']}, likes={r['likes']}): {str(r['text'])[:180]}")
+
+    # Topik kata dari sampel DB ringan
+    try:
+        import pandas as pd
+        with _conn() as c:
+            neg_t = [r["text"] for r in c.execute(f"SELECT text FROM comments{kw_clause}{' AND' if kw_clause else ' WHERE'} label='Negatif'", kw_params).fetchall()[:500]]
+            pos_t = [r["text"] for r in c.execute(f"SELECT text FROM comments{kw_clause}{' AND' if kw_clause else ' WHERE'} label='Positif'", kw_params).fetchall()[:500]]
+        kw_terms = set(_re.findall(r"[a-zA-Zà-ÿ']{3,}", str(keyword or "").lower()))
+        if len(neg_t) >= 3:
+            parts.append(f"\nTopik negatif: {', '.join(f'{w}({n})' for w, n in top_terms(neg_t, 6, exclude=kw_terms))}")
+        if len(pos_t) >= 3:
+            parts.append(f"Topik positif: {', '.join(f'{w}({n})' for w, n in top_terms(pos_t, 6, exclude=kw_terms))}")
+    except Exception:
+        pass
+    parts.append("\nCatatan: ini data KUMULATIF lintas waktu (bukan snapshot 1 scrape). Jika user tanya tren, lihat Tren GSS antar run.")
+    parts.append("=== END ===")
+    return "\n".join(parts)
