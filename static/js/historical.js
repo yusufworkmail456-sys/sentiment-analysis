@@ -10,7 +10,7 @@ window.renderHistorical = function () {
 <div class="section-card mb-5 flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
   <div>
     <div class="flex items-center gap-2 mb-2">
-      <span class="chip chip-primary"><span class="material-symbols-outlined text-[13px]">history_eviction</span> Database</span>
+      <span class="chip chip-primary"><span class="material-symbols-outlined text-[13px]">storage</span> Database</span>
       <span class="chip chip-gold"><span class="material-symbols-outlined text-[13px]">schedule</span> auto-scrape tiap 6 jam</span>
     </div>
     <h1 class="text-[22px] font-extrabold text-on-surface tracking-tight">Historical Analytics</h1>
@@ -132,7 +132,7 @@ function haRenderKpis(ov, runs) {
   const dGss = (last && prev) ? (last.gss - prev.gss) : null;
   el.innerHTML =
     kpiCard('Komentar Unik di DB', fmt(ov.unique_comments || 0),
-      `${fmt(ov.dated_comments || 0)} punya tanggal platform`, 'database', '#005d97') +
+      `${fmt(ov.dated_comments || 0)} punya tanggal platform`, 'storage', '#005d97') +
     kpiCard('Jumlah Run Tercatat', fmt(ov.runs || 0),
       ov.last_run ? 'terakhir: ' + new Date(ov.last_run).toLocaleString('id-ID', { dateStyle: 'short', timeStyle: 'short' }) : '-',
       'history', '#004a7c') +
