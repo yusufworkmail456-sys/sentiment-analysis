@@ -1,5 +1,5 @@
 /* ═══════════════════════════════════════════
-   Sentix AI – AI Insight page
+   Taspen Sentiment Platform – AI Insight page
 ══════════════════════════════════════════ */
 
 window.renderAI = function () {
@@ -29,7 +29,7 @@ window.renderAI = function () {
     </div>
     <h1 class="text-[22px] font-extrabold text-on-surface tracking-tight">AI Insight</h1>
     <p class="text-[13px] text-on-surface-variant mt-1 max-w-2xl">
-      Analisis otomatis oleh Sentix AI Analysis Agent: ringkasan eksekutif, rekomendasi tindakan, dan tanya jawab atas data terbaru.
+      Analisis otomatis oleh Taspen Sentiment Analysis Agent: ringkasan eksekutif, rekomendasi tindakan, dan tanya jawab atas data terbaru.
     </p>
   </div>
   <button class="btn btn-primary" id="btn-gen-all" onclick="generateAll()">
@@ -39,10 +39,10 @@ window.renderAI = function () {
 
 <!-- Context summary -->
 <div class="grid grid-cols-2 xl:grid-cols-4 gap-3 mb-5">
-  ${kpiCard('Keyword',      esc(meta.keyword||'—'),   `mode: ${meta.mode||'?'}`,      'search',                  '#3525cd')}
-  ${kpiCard('Total Data',   fmt(st.total),              `${[...new Set(rows.map(r=>r.source))].length} sumber`,  'analytics',               '#006e4b')}
-  ${kpiCard('Net Sentiment Score', `${st.skor>=0?'+':''}${st.skor.toFixed(1)}`, `GSS ${st.gss.toFixed(1)}/100`, 'sentiment_very_satisfied', st.skor>=0?'#006e4b':'#ba1a1a')}
-  ${kpiCard('Durasi Scrape', `${meta.durasi||'?'}s`,   `${meta.stamp||''}`,            'timer',                   '#3525cd')}
+  ${kpiCard('Keyword',      esc(meta.keyword||'—'),   `mode: ${meta.mode||'?'}`,      'search',                  '#005d97')}
+  ${kpiCard('Total Data',   fmt(st.total),              `${[...new Set(rows.map(r=>r.source))].length} sumber`,  'analytics',               '#1e9e6a')}
+  ${kpiCard('Net Sentiment Score', `${st.skor>=0?'+':''}${st.skor.toFixed(1)}`, `GSS ${st.gss.toFixed(1)}/100`, 'sentiment_very_satisfied', st.skor>=0?'#1e9e6a':'#d64545')}
+  ${kpiCard('Durasi Scrape', `${meta.durasi||'?'}s`,   `${meta.stamp||''}`,            'timer',                   '#005d97')}
 </div>
 
 <!-- AI Summary -->

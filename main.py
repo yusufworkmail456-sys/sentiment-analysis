@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Sentix AI – FastAPI entrypoint.
+"""Taspen Sentiment Platform – FastAPI entrypoint.
 
 Jalankan:
   ./venv/bin/uvicorn main:app --host 127.0.0.1 --port 9120 --reload
@@ -18,7 +18,7 @@ import traceback
 from fastapi import Request
 from fastapi.responses import JSONResponse
 
-app = FastAPI(title="Sentix AI", version="2.0.0")
+app = FastAPI(title="Taspen Sentiment Platform", version="2.0.0")
 
 
 @app.exception_handler(Exception)

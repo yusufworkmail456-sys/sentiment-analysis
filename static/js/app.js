@@ -1,5 +1,5 @@
 /* ═══════════════════════════════════════════════════
-   Sentix AI – App state, router, shared utilities
+   Taspen Sentiment Platform – App state, router, shared utilities
 ══════════════════════════════════════════════════ */
 
 // ── Global state ──────────────────────────────────
@@ -79,9 +79,10 @@ function updateSidebar() {
 
 // ── Router ─────────────────────────────────────────
 const PAGES = {
-  scrape:    { title: 'Scrape & Analisis',   desc: 'Kumpulkan data dari 6 platform lalu analisis sentimennya',    render: () => window.renderScrape?.() },
-  dashboard: { title: 'Dashboard',           desc: 'Visualization overview hasil analisis sentimen gabungan',      render: () => window.renderDashboard?.() },
-  ai:        { title: 'AI Insight',          desc: 'Ringkasan eksekutif, rekomendasi, dan chatbot analisis',       render: () => window.renderAI?.() },
+  scrape:    { title: 'Scrape & Analisis',         desc: 'Kumpulkan data dari 6 platform lalu analisis sentimennya',            render: () => window.renderScrape?.() },
+  dashboard: { title: 'Visualization Overview',    desc: 'Parameter bersama dari semua sumber dalam satu tampilan',             render: () => window.renderDashboard?.() },
+  sources:   { title: 'Per-Source Breakdown',      desc: 'Visualisasi adaptif per sumber — menyesuaikan data yang tertangkap',  render: () => window.renderSourcesPage?.() },
+  ai:        { title: 'AI Insight',                desc: 'Ringkasan eksekutif, rekomendasi, dan chatbot analisis',              render: () => window.renderAI?.() },
 };
 
 function navigate(page) {
@@ -126,21 +127,21 @@ function renderMd(text) {
     .replace(/^#{1,3} (.+)$/gm, '<h3 style="font-size:14px;font-weight:700;margin:10px 0 4px">$1</h3>')
     .replace(/^- (.+)$/gm, '<li style="margin:2px 0 2px 16px;font-size:13px;">$1</li>')
     .replace(/\n\n/g, '<br/><br/>')
-    .replace(/`(.+?)`/g, '<code style="background:#f2f3ff;padding:1px 5px;border-radius:4px;font-size:12px;font-family:monospace">$1</code>');
+    .replace(/`(.+?)`/g, '<code style="background:#eef4f9;padding:1px 5px;border-radius:4px;font-size:12px;font-family:monospace">$1</code>');
 }
 
 // ── Sentiment color helpers ────────────────────────
-const LABEL_COLOR = { 'Positif': '#006e4b', 'Netral': '#777587', 'Negatif': '#ba1a1a' };
-const LABEL_BG    = { 'Positif': '#6ffbbe', 'Netral': '#dae2fd', 'Negatif': '#ffdad6' };
-const LABEL_TEXT  = { 'Positif': '#002113', 'Netral': '#464555', 'Negatif': '#93000a' };
+const LABEL_COLOR = { 'Positif': '#1e9e6a', 'Netral': '#6b8299', 'Negatif': '#d64545' };  // Taspen
+const LABEL_BG    = { 'Positif': '#a8e6c9', 'Netral': '#d9e7f2', 'Negatif': '#f9dede' };
+const LABEL_TEXT  = { 'Positif': '#08351f', 'Netral': '#465e71', 'Negatif': '#8f1d1d' };
 const SOURCE_LABEL = {
   instagram: 'Instagram', youtube: 'YouTube', web: 'Web berita',
   facebook: 'Facebook', tiktok: 'TikTok', playstore: 'Play Store',
 };
 
 function sentimentBadge(label) {
-  const bg   = LABEL_BG[label]   || '#eaedff';
-  const color= LABEL_TEXT[label] || '#464555';
+  const bg   = LABEL_BG[label]   || '#e3eef7';
+  const color= LABEL_TEXT[label] || '#465e71';
   return `<span style="background:${bg};color:${color};padding:3px 10px;border-radius:999px;font-size:11px;font-weight:700;">${esc(label)}</span>`;
 }
 
@@ -156,6 +157,9 @@ function computeStats(rows) {
   const gss  = (cnt.Positif + 0.5 * cnt.Netral) / total * 100;
   return { total, cnt, pct, skor, gss };
 }
+
+// ── Nav helper (usable from inline onclick) ─────────
+function navTo(page) { navigate(page); }
 
 // ── Boot ───────────────────────────────────────────
 document.addEventListener('DOMContentLoaded', () => {

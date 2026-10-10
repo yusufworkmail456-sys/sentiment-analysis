@@ -3,11 +3,9 @@
 <head>
   <meta charset="utf-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Sentix AI – Sentiment Intelligence</title>
-  <link rel="preconnect" href="https://fonts.googleapis.com"/>
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
-  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet"/>
-  <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" rel="stylesheet"/>
+  <title>Taspen Sentiment Platform – by Mitra Digital</title>
+  <!-- Self-hosted fonts + icons (fully offline, fully customized) -->
+  <link rel="stylesheet" href="/static/css/fonts-local.css"/>
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://cdn.plot.ly/plotly-2.32.0.min.js"></script>
   <link rel="stylesheet" href="/static/css/app.css"/>
@@ -17,48 +15,53 @@
       theme: {
         extend: {
           colors: {
-            primary:            "#3525cd",
-            secondary:          "#0058be",
-            tertiary:           "#005338",
-            "primary-container":"#4f46e5",
-            "secondary-container":"#2170e4",
-            "tertiary-container":"#006e4b",
+            /* Taspen brand palette */
+            primary:            "#005d97",
+            secondary:          "#0077c8",
+            tertiary:           "#0e7a52",
+            "primary-dark":     "#004a7c",
+            "primary-darker":   "#062a44",
+            gold:               "#e8c21d",
+            "gold-dark":        "#a88a00",
+            "primary-container":"#004a7c",
+            "secondary-container":"#0077c8",
+            "tertiary-container":"#1e9e6a",
             "on-primary":       "#ffffff",
             "on-secondary":     "#ffffff",
             "on-tertiary":      "#ffffff",
-            "on-primary-fixed-variant": "#3323cc",
-            "on-secondary-fixed-variant": "#004395",
-            "on-tertiary-fixed-variant": "#005236",
-            "on-surface":       "#131b2e",
-            "on-surface-variant":"#464555",
-            "on-primary-fixed": "#0f0069",
-            "on-tertiary-fixed":"#002113",
-            "primary-fixed":    "#e2dfff",
-            "primary-fixed-dim":"#c3c0ff",
-            "secondary-fixed":  "#d8e2ff",
-            "secondary-fixed-dim":"#adc6ff",
-            "tertiary-fixed":   "#6ffbbe",
-            "tertiary-fixed-dim":"#4edea3",
-            surface:            "#faf8ff",
-            "surface-dim":      "#d2d9f4",
-            "surface-bright":   "#faf8ff",
+            "on-primary-fixed-variant": "#0f4a7d",
+            "on-secondary-fixed-variant": "#085e97",
+            "on-tertiary-fixed-variant": "#0e7a52",
+            "on-surface":       "#0d2b45",
+            "on-surface-variant":"#465e71",
+            "on-primary-fixed": "#062a44",
+            "on-tertiary-fixed":"#08351f",
+            primary-fixed:      "#dcebf6",
+            "primary-fixed-dim":"#bcd7ea",
+            "secondary-fixed":  "#d9e7f2",
+            "secondary-fixed-dim":"#bcd7ea",
+            "tertiary-fixed":   "#a8e6c9",
+            "tertiary-fixed-dim":"#7fd4ab",
+            surface:            "#f4f8fb",
+            "surface-dim":      "#d5e2ec",
+            "surface-bright":   "#f4f8fb",
             "surface-container-lowest":"#ffffff",
-            "surface-container-low": "#f2f3ff",
-            "surface-container":     "#eaedff",
-            "surface-container-high":"#e2e7ff",
-            "surface-container-highest":"#dae2fd",
-            "surface-variant":  "#dae2fd",
-            "surface-tint":     "#4d44e3",
-            background:         "#faf8ff",
-            outline:            "#777587",
-            "outline-variant":  "#c7c4d8",
-            "inverse-surface":  "#283044",
-            "inverse-on-surface":"#eef0ff",
-            "inverse-primary":  "#c3c0ff",
-            error:              "#ba1a1a",
+            "surface-container-low": "#eef4f9",
+            "surface-container":     "#e3eef7",
+            "surface-container-high":"#dcebf6",
+            "surface-container-highest":"#d9e7f2",
+            "surface-variant":  "#d9e7f2",
+            "surface-tint":     "#005d97",
+            background:         "#f4f8fb",
+            outline:            "#6b8299",
+            "outline-variant":  "#d5e2ec",
+            "inverse-surface":  "#0d2b45",
+            "inverse-on-surface":"#eef4f9",
+            "inverse-primary":  "#bcd7ea",
+            error:              "#d64545",
             "on-error":         "#ffffff",
-            "error-container":  "#ffdad6",
-            "on-error-container":"#93000a",
+            "error-container":  "#f9dede",
+            "on-error-container":"#8f1d1d",
           }
         }
       }
@@ -68,17 +71,19 @@
 <body class="bg-background font-sans text-on-surface antialiased min-h-screen" style="font-family:'Plus Jakarta Sans',sans-serif;">
 
 <!-- ═══════════════════════════ SIDEBAR ═══════════════════════════ -->
-<aside id="sidebar" class="fixed left-0 top-0 h-full w-72 bg-surface-container-lowest z-50 flex flex-col shadow-[0_1px_8px_rgba(0,0,0,0.04)] border-r border-outline-variant/30 transition-transform duration-200">
+<aside id="sidebar" class="fixed left-0 top-0 h-full w-72 bg-surface-container-lowest z-50 flex flex-col shadow-[0_1px_8px_rgba(13,43,69,0.06)] border-r border-outline-variant/40 transition-transform duration-200">
 
-  <!-- Brand -->
-  <div class="h-16 px-5 flex items-center gap-3 border-b border-outline-variant/20">
-    <img src="/assets/taspen.svg" alt="Sentix" class="h-8 w-auto object-contain"
+  <!-- Brand: logo Taspen + nama resmi + logo Mitra Digital -->
+  <div class="px-4 py-3 flex items-center gap-3 border-b border-outline-variant/30">
+    <img src="/assets/taspen.svg" alt="Taspen" class="h-9 w-auto object-contain flex-shrink-0"
          onerror="this.style.display='none';document.getElementById('brand-fallback').style.display='flex'"/>
-    <div id="brand-fallback" style="display:none" class="w-8 h-8 rounded-lg bg-primary flex items-center justify-center text-on-primary font-bold text-sm">S</div>
-    <div class="flex flex-col">
-      <span class="text-[15px] font-extrabold text-on-surface tracking-tight leading-none">Sentix AI</span>
-      <span class="text-[11px] font-medium text-on-surface-variant mt-0.5">Sentiment Intelligence</span>
+    <div id="brand-fallback" style="display:none" class="w-9 h-9 rounded-lg bg-primary flex items-center justify-center text-on-primary font-bold text-sm flex-shrink-0">T</div>
+    <div class="flex flex-col min-w-0">
+      <span class="text-[13px] font-extrabold text-on-surface tracking-tight leading-tight">Taspen Sentiment Platform</span>
+      <span class="text-[10px] font-semibold text-gold-dark mt-0.5">by Mitra Digital</span>
     </div>
+    <img src="/assets/logo2.jpg" alt="Mitra Digital" class="h-7 w-auto object-contain ml-auto flex-shrink-0"
+         onerror="this.style.display='none'"/>
   </div>
 
   <!-- Engine status -->
@@ -104,7 +109,11 @@
     </a>
     <a href="#" class="nav-link" data-page="dashboard">
       <span class="material-symbols-outlined text-[20px]">insights</span>
-      <span>Dashboard</span>
+      <span>Visualization Overview</span>
+    </a>
+    <a href="#" class="nav-link" data-page="sources">
+      <span class="material-symbols-outlined text-[20px]">folder_data</span>
+      <span>Per-Source Breakdown</span>
     </a>
     <a href="#" class="nav-link" data-page="ai">
       <span class="material-symbols-outlined text-[20px]">auto_awesome</span>
@@ -113,7 +122,7 @@
   </nav>
 
   <!-- Sidebar footer: volume meter -->
-  <div class="p-4 border-t border-outline-variant/20">
+  <div class="p-4 border-t border-outline-variant/30">
     <div class="p-3 rounded-xl bg-surface-container-low flex flex-col gap-2">
       <div class="flex items-center justify-between">
         <span class="text-[12px] font-semibold text-on-surface">Data Teranalisis</span>
@@ -131,7 +140,7 @@
 <div class="pl-72 flex flex-col min-h-screen">
 
   <!-- Top bar -->
-  <header class="fixed top-0 left-72 right-0 h-16 bg-surface-container-lowest/90 backdrop-blur-xl shadow-[0_1px_8px_rgba(0,0,0,0.04)] z-40 flex items-center justify-between px-6 border-b border-outline-variant/20">
+  <header class="fixed top-0 left-72 right-0 h-16 bg-surface-container-lowest/90 backdrop-blur-xl shadow-[0_1px_8px_rgba(13,43,69,0.06)] z-40 flex items-center justify-between px-6 border-b border-outline-variant/40">
     <div class="flex items-center gap-3">
       <div>
         <div class="text-[15px] font-extrabold text-on-surface" id="topbar-title">Scrape &amp; Analisis</div>
@@ -139,7 +148,7 @@
       </div>
     </div>
     <div class="flex items-center gap-4">
-      <div class="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-surface-container-low">
+      <div class="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-surface-container-low border border-gold/40">
         <div class="w-2 h-2 rounded-full bg-tertiary-container" id="status-dot"></div>
         <span class="text-[12px] font-mono font-medium text-on-surface" id="status-text">Siap</span>
       </div>

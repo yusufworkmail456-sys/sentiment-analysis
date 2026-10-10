@@ -9,6 +9,7 @@ import argparse
 import csv
 import math
 import os
+import re
 import sys
 import time
 from datetime import datetime, timezone
@@ -368,13 +369,13 @@ def scrape_url_ig(url, max_comments=100, log=print):
 
     session = _make_session(sid, username)
 
-    # Extract shortcode from URL
+    # Extract shortcode from URL (/p/ or /reel/)
     match = _re.search(r"/(?:p|reel)/([A-Za-z0-9_-]+)", url)
     if not match:
         raise RuntimeError(f"URL tidak valid: {url}")
     shortcode = match.group(1)
 
-    # Get media_id from shortcode using GraphQL
+    # Get media_id from shortcode using web API
     try:
         r = session.get(
             f"https://www.instagram.com/api/v1/media/shortcode/{shortcode}/",
@@ -382,17 +383,23 @@ def scrape_url_ig(url, max_comments=100, log=print):
         if r.status_code != 200:
             raise RuntimeError(f"IG: tidak bisa ambil media_id (HTTP {r.status_code})")
         data = r.json()
-        post_id = data.get("pk") or data.get("id", "")
+        item = data.get("items", [{}])[0] if isinstance(data.get("items"), list) else {}
+        post_id = item.get("pk") or data.get("pk") or ""
     except RuntimeError:
         raise
     except Exception as e:
         raise RuntimeError(f"IG: gagal ambil info post: {e}")
 
+    # Correct post URL (from shortcode, not post_id)
+    rows = []
     if not post_id:
         raise RuntimeError("IG: media_id tidak ditemukan")
 
-    return _get_comments(session, str(post_id), shortcode=shortcode,
-                         max_comments=max_comments, log=log)
+    comments = _get_comments(session, str(post_id), shortcode=shortcode,
+                             max_comments=max_comments, log=log)
+    for c in comments:
+        c["url"] = f"https://www.instagram.com/p/{shortcode}/"
+    return comments
 
 
 def scrape_url_yt(url, max_comments=100, log=print):
@@ -516,9 +523,19 @@ def scrape_url_tiktok(url, max_comments=100, log=print):
     if not ms_token:
         raise RuntimeError("ms_token TikTok kosong.")
 
-    # Extract video ID from URL
+    # Extract video ID from URL (support /video/<id> and short links vto.toktok etc.)
     import re as _re
     match = _re.search(r"/video/(\d+)", url)
+    if not match:
+        # vt.tiktok.com short URL → resolve via TikTokApi oEmbed or redirect
+        try:
+            import requests as _rq
+            r = _rq.head(url, allow_redirects=True, timeout=15,
+                         headers={"User-Agent": UA})
+            url = r.url
+            match = _re.search(r"/video/(\d+)", url)
+        except Exception:
+            pass
     if not match:
         raise RuntimeError(f"URL TikTok tidak valid: {url}")
     video_id = match.group(1)
@@ -554,9 +571,12 @@ def scrape_url_tiktok(url, max_comments=100, log=print):
 
 
 def scrape_url_web(url, max_comments=1, log=print):
-    """Fetch and extract text from a single web/news article URL."""
+    """Fetch and extract text from a single web/news article URL.
+    `max_comments` tidak relevan untuk artikel — 1 URL = 1 baris artikel.
+    Extract juga tanggal publish + nama media bila tersedia."""
     import trafilatura
     from datetime import datetime, timezone
+    from email.utils import parsedate_to_datetime
 
     try:
         r = _http_get(url, allow_redirects=True)
@@ -570,15 +590,82 @@ def scrape_url_web(url, max_comments=1, log=print):
     if len(text) < 100:
         raise RuntimeError("Web: konten terlalu pendek atau tidak bisa diekstrak.")
 
-    log(f"Web URL: {len(text)} karakter diambil")
+    # --- metadata extraction (best effort) ---
+    date = ""
+    try:
+        meta = trafilatura.baseline(html) or {}
+        raw_date = meta.get("date") or ""
+        if raw_date:
+            date = str(raw_date)[:10]
+    except Exception:
+        pass
+    if not date:
+        # <meta property="article:published_time" content="...">
+        m = re.search(r'property=["\']article:published_time["\']\s+content=["\']([^"\']+)', html)
+        if not m:
+            m = re.search(r'name=["\'](?:pubdate|publishdate|date)["\']\s+content=["\']([^"\']+)', html)
+        if m:
+            date = m.group(1)[:10]
+
+    author = ""
+    try:
+        m = re.search(r'property=["\']og:site_name["\']\s+content=["\']([^"\']+)', html)
+        if m:
+            author = m.group(1).strip()
+    except Exception:
+        pass
+    if not author:
+        try:
+            from urllib.parse import urlparse
+            author = urlparse(final_url).netloc.replace("www.", "")
+        except Exception:
+            author = ""
+
+    log(f"Web URL: {len(text)} karakter diambil (media: {author or '?'}, tanggal: {date or '?'})")
     return [{
         "source": "web",
         "text": text[:6000],
-        "author": "",
-        "date": datetime.now(tz=timezone.utc).isoformat(),
+        "author": author,
+        "date": date,
         "likes": 0,
         "url": final_url,
     }]
+
+
+def scrape_url_playstore(url, max_comments=100, log=print):
+    """Scrape reviews dari satu app Play Store.
+    URL: https://play.google.com/store/apps/details?id=<package>"""
+    import re as _re
+    from google_play_scraper import reviews, Sort
+
+    m = _re.search(r"[?&]id=([a-zA-Z0-9._]+)", url)
+    if not m:
+        raise RuntimeError(f"URL Play Store tidak valid (butuh ?id=<package>): {url}")
+    pkg = m.group(1)
+
+    rows = []
+    try:
+        result, _ = reviews(
+            pkg, lang="id", country="id",
+            sort=Sort.NEWEST, count=max_comments,
+        )
+        for r in result:
+            text = (r.get("content") or "").strip().replace("\n", " ")
+            if len(text) < 3:
+                continue
+            rows.append({
+                "source": "playstore",
+                "text": text[:3000],
+                "author": r.get("userName", ""),
+                "date": r.get("at").isoformat() if r.get("at") else "",
+                "likes": r.get("thumbsUpCount", 0) or 0,
+                "url": f"https://play.google.com/store/apps/details?id={pkg}",
+                "rating": r.get("score", ""),
+            })
+        log(f"Play Store URL: {pkg}: +{len(rows)} reviews")
+    except Exception as e:
+        raise RuntimeError(f"Play Store: gagal scrape {pkg}: {type(e).__name__} {str(e)[:120]}")
+    return rows
 
 
 URL_SCRAPERS = {
@@ -587,4 +674,5 @@ URL_SCRAPERS = {
     "facebook": scrape_url_facebook,
     "tiktok": scrape_url_tiktok,
     "web": scrape_url_web,
+    "playstore": scrape_url_playstore,
 }

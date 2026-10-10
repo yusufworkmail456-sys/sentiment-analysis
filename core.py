@@ -132,11 +132,17 @@ def run_sentiment(df, progress=None, detect_bots=False, tag_entities=False):
     df["label"] = [LABEL_ID.get(str(l).lower(), l) for l in labels]
     df["score"] = scores
     df["keyakinan"] = ["yakin" if s >= 0.6 else "ragu" for s in scores]
+    if "rating" in df.columns:
+        df["rating"] = pd.to_numeric(df["rating"], errors="coerce")
     df = classify_df(df)
     if detect_bots:
         df = detect_bot_df(df)
     if tag_entities:
         df = tag_entities_df(df)
+    # Normalisasi kolom opsional supaya JSON aman
+    for opt in ("rating", "is_bot_suspect"):
+        if opt in df.columns:
+            df[opt] = df[opt].where(df[opt].notna(), None)
     return df
 
 

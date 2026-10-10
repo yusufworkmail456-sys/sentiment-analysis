@@ -64,7 +64,7 @@ async def ai_chat(req: ChatRequest):
 
     context = build_sentiment_context(df, req.meta)
     system_prompt = (
-        "Kamu adalah Sentix AI Analysis Agent. "
+        "Kamu adalah Taspen Sentiment Analysis Agent. "
         "Jawab pertanyaan user tentang hasil sentiment berdasarkan context. "
         "Aturan: (1) jawab dari data, (2) jangan mengarang, (3) actionable, "
         "(4) Bahasa Indonesia natural.\n\n" + context

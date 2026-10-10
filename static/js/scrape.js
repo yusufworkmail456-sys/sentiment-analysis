@@ -1,5 +1,5 @@
 /* ═══════════════════════════════════════════
-   Sentix AI – Scrape & Analisis page
+   Taspen Sentiment Platform – Scrape & Analisis page
 ══════════════════════════════════════════ */
 
 window.renderScrape = function () {
@@ -171,7 +171,7 @@ window.renderScrape = function () {
             <option value="web">Web / Artikel</option>
             <option value="facebook">Facebook</option>
             <option value="tiktok">TikTok</option>
-            <option value="playstore">Play Store (App ID)</option>
+            <option value="playstore">Play Store (URL app)</option>
           </select>
         </div>
         <div>
@@ -407,10 +407,10 @@ function renderResults() {
   el.innerHTML = `
 <!-- KPI row -->
 <div class="grid grid-cols-2 xl:grid-cols-4 gap-3 mb-5">
-  ${kpiCard('Total Teks Dianalisis', fmt(st.total), `${[...new Set(rows.map(r=>r.source))].length} sumber · ${esc(meta.keyword||'')}`, 'analytics', '#3525cd')}
-  ${kpiCard('Net Sentiment Score', (st.skor>=0?'+':'') + st.skor.toFixed(1), `GSS ${st.gss.toFixed(1)}/100`, 'sentiment_very_satisfied', st.skor >= 0 ? '#006e4b' : '#ba1a1a')}
-  ${kpiCard('Rasio Positif', st.pct.Positif.toFixed(1)+'%', fmt(st.cnt.Positif)+' komentar', 'thumb_up', '#006e4b')}
-  ${kpiCard('Negatif Alert', st.pct.Negatif.toFixed(1)+'%', fmt(st.cnt.Negatif)+' komentar', 'notification_important', '#ba1a1a')}
+  ${kpiCard('Total Teks Dianalisis', fmt(st.total), `${[...new Set(rows.map(r=>r.source))].length} sumber · ${esc(meta.keyword||'')}`, 'analytics', '#005d97')}
+  ${kpiCard('Net Sentiment Score', (st.skor>=0?'+':'') + st.skor.toFixed(1), `GSS ${st.gss.toFixed(1)}/100`, 'sentiment_very_satisfied', st.skor >= 0 ? '#1e9e6a' : '#d64545')}
+  ${kpiCard('Rasio Positif', st.pct.Positif.toFixed(1)+'%', fmt(st.cnt.Positif)+' komentar', 'thumb_up', '#1e9e6a')}
+  ${kpiCard('Negatif Alert', st.pct.Negatif.toFixed(1)+'%', fmt(st.cnt.Negatif)+' komentar', 'notification_important', '#d64545')}
 </div>
 
 <!-- Distribusi + top comments -->
@@ -567,7 +567,7 @@ function filterTable() {
 function downloadCSV() {
   const rows = App.state.rows;
   if (!rows.length) return toast('Tidak ada data', 'warn');
-  const cols = ['source','label','score','kategori','text','author','likes','url'];
+  const cols = ['source','label','score','kategori','text','author','date','likes','rating','is_bot_suspect','bot_reasons','entity_categories','entity_mentions','url'];
   const csv  = [cols.join(','), ...rows.map(r =>
     cols.map(c => JSON.stringify(String(r[c]??''))).join(',')
   )].join('\n');
