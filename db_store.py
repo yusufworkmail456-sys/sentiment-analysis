@@ -367,17 +367,20 @@ def historical_context(keyword=None, sample_n=25) -> str:
     from core import LABELS, top_terms
 
     init_db()
-    kw_clause, kw_params = "", []
+    kw_clause, kw_params = "", []          # utk scrape_runs (punya kolom keyword)
+    kw_cmt, kw_cmt_params = "", []         # utk comments (via run_id_first → scrape_runs)
     if keyword:
         kw_clause = " WHERE keyword = ?"
         kw_params = [keyword]
+        kw_cmt = " WHERE run_id_first IN (SELECT id FROM scrape_runs WHERE keyword = ?)"
+        kw_cmt_params = [keyword]
     parts = ["=== KONTEKS SENTIMENT HISTORIS (database kumulatif, dedup global) ==="]
     with _conn() as c:
         # Ringkasan umum
         runs = c.execute(f"SELECT id, ts, keyword, gss, nss, pos, neu, neg, new_count, dup_count, sources_json FROM scrape_runs{kw_clause} ORDER BY ts_epoch", kw_params).fetchall()
-        total_rows = c.execute(f"SELECT COUNT(*) AS n FROM comments{kw_clause}", kw_params).fetchone()["n"]
-        dated = c.execute(f"SELECT COUNT(*) AS n FROM comments{kw_clause} {'AND' if kw_clause else 'WHERE'} date_epoch IS NOT NULL", kw_params).fetchone()["n"]
-        bots = c.execute(f"SELECT COUNT(*) AS n FROM comments{kw_clause} {'AND' if kw_clause else 'WHERE'} is_bot_suspect=1", kw_params).fetchone()["n"]
+        total_rows = c.execute(f"SELECT COUNT(*) AS n FROM comments{kw_cmt}", kw_cmt_params).fetchone()["n"]
+        dated = c.execute(f"SELECT COUNT(*) AS n FROM comments{kw_cmt} {'AND' if kw_cmt else 'WHERE'} date_epoch IS NOT NULL", kw_cmt_params).fetchone()["n"]
+        bots = c.execute(f"SELECT COUNT(*) AS n FROM comments{kw_cmt} {'AND' if kw_cmt else 'WHERE'} is_bot_suspect=1", kw_cmt_params).fetchone()["n"]
         parts.append(f"Keyword filter: {keyword or 'semua'} | Run tercatat: {len(runs)} | Komentar unik: {total_rows} | Dengan tanggal: {dated} | Dugaan bot: {bots}")
         if not runs:
             parts.append("Database kosong.")
@@ -406,7 +409,7 @@ def historical_context(keyword=None, sample_n=25) -> str:
         # Top entitas & kategori
         for col, title in [("entity_mentions", "Top entitas/pihak terkait"), ("entity_categories", "Kategori entitas")]:
             cnt = Counter()
-            for row in c.execute(f"SELECT {col} AS v FROM comments{kw_clause}{' AND' if kw_clause else ' WHERE'} {col} != ''", kw_params):
+            for row in c.execute(f"SELECT {col} AS v FROM comments{kw_cmt}{' AND' if kw_cmt else ' WHERE'} {col} != ''", kw_cmt_params):
                 for e in str(row["v"]).split(","):
                     e = e.strip()
                     if e:
@@ -415,8 +418,8 @@ def historical_context(keyword=None, sample_n=25) -> str:
                 parts.append(f"\n{title}: " + ", ".join(f"{k}({v})" for k, v in cnt.most_common(12)))
 
         # Kategori × sentimen
-        cat = c.execute(f"""SELECT kategori AS k, label AS l, COUNT(*) AS n FROM comments{kw_clause}
-                            GROUP BY kategori, label ORDER BY n DESC LIMIT 40""", kw_params).fetchall()
+        cat = c.execute(f"""SELECT kategori AS k, label AS l, COUNT(*) AS n FROM comments{kw_cmt}
+                            GROUP BY kategori, label ORDER BY n DESC LIMIT 40""", kw_cmt_params).fetchall()
         if cat:
             parts.append("\nKategori × sentimen (atas):")
             for r in cat[:14]:
@@ -424,10 +427,10 @@ def historical_context(keyword=None, sample_n=25) -> str:
 
         # Sampel komentar (negatif & positif teratas)
         for lab, title in [("Negatif", "Sampel komentar NEGATIF"), ("Positif", "Sampel komentar POSITIF")]:
-            rows = c.execute(f"""SELECT text, author, source, likes FROM comments{kw_clause}
-                                 {'AND' if kw_clause else 'WHERE'} label = ?
+            rows = c.execute(f"""SELECT text, author, source, likes FROM comments{kw_cmt}
+                                 {'AND' if kw_cmt else 'WHERE'} label = ?
                                  ORDER BY likes DESC, first_seen DESC LIMIT ?""",
-                             kw_params + [lab, sample_n]).fetchall()
+                             kw_cmt_params + [lab, sample_n]).fetchall()
             if rows:
                 parts.append(f"\n{title} (by engagement):")
                 for r in rows[:sample_n]:
@@ -437,8 +440,8 @@ def historical_context(keyword=None, sample_n=25) -> str:
     try:
         import pandas as pd
         with _conn() as c:
-            neg_t = [r["text"] for r in c.execute(f"SELECT text FROM comments{kw_clause}{' AND' if kw_clause else ' WHERE'} label='Negatif'", kw_params).fetchall()[:500]]
-            pos_t = [r["text"] for r in c.execute(f"SELECT text FROM comments{kw_clause}{' AND' if kw_clause else ' WHERE'} label='Positif'", kw_params).fetchall()[:500]]
+            neg_t = [r["text"] for r in c.execute(f"SELECT text FROM comments{kw_cmt}{' AND' if kw_cmt else ' WHERE'} label='Negatif'", kw_cmt_params).fetchall()[:500]]
+            pos_t = [r["text"] for r in c.execute(f"SELECT text FROM comments{kw_cmt}{' AND' if kw_cmt else ' WHERE'} label='Positif'", kw_cmt_params).fetchall()[:500]]
         kw_terms = set(_re.findall(r"[a-zA-Zà-ÿ']{3,}", str(keyword or "").lower()))
         if len(neg_t) >= 3:
             parts.append(f"\nTopik negatif: {', '.join(f'{w}({n})' for w, n in top_terms(neg_t, 6, exclude=kw_terms))}")
