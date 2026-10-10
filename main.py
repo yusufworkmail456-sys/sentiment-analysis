@@ -48,6 +48,12 @@ app.include_router(sessions_router,  prefix="/api")
 app.include_router(history_router,   prefix="/api")
 app.include_router(modelinfo_router, prefix="/api")
 
+
+@app.get("/api/app/info", include_in_schema=False)
+async def app_info():
+    """Versi aplikasi untuk sidebar."""
+    return {"ok": True, "version": config.APP_VERSION, "title": "Taspen Sentiment Platform"}
+
 # ── Static files ──────────────────────────────────────────────────────────
 app.mount("/static", StaticFiles(directory="static"), name="static")
 app.mount("/assets", StaticFiles(directory="assets"), name="assets")

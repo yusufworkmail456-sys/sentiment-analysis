@@ -35,6 +35,7 @@ IG_PROXY = os.environ.get("IG_PROXY", "")
 APP_TITLE = os.environ.get("APP_TITLE", "Sentiment Analysis")
 APP_SUBTITLE = os.environ.get("APP_SUBTITLE",
     "Multi-platform · IndoBERT · AI insight")
+APP_VERSION = os.environ.get("APP_VERSION", "2.1.0")
 
 # === Play Store apps to scrape (configurable) ===
 # Format: {env var name: display fallback}

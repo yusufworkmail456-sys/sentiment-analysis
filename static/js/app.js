@@ -220,4 +220,9 @@ document.addEventListener('DOMContentLoaded', () => {
     const el = document.getElementById('engine-model');
     if (el && d.ok) el.textContent = d.llm_model;
   }).catch(() => {});
+  // Versi aplikasi di brand sidebar
+  apiGet('/api/app/info').then(d => {
+    const el = document.getElementById('sb-version');
+    if (el && d.ok) el.textContent = 'v' + d.version;
+  }).catch(() => {});
 });
