@@ -113,10 +113,10 @@ window.renderScrape = function () {
         <div class="text-[11px] font-extrabold uppercase tracking-widest text-outline mb-3">Sumber &amp; jumlah target</div>
         <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 mb-4">
           ${[
-            {k:'ig',  ic:'photo_camera', label:'Instagram', max:300, def:60},
-            {k:'yt',  ic:'play_circle',  label:'YouTube',   max:300, def:60},
+            {k:'ig',  ic:'photo_camera', label:'Instagram', max:300, def:0},
+            {k:'yt',  ic:'play_circle',  label:'YouTube',   max:300, def:30},
             {k:'web', ic:'language',     label:'Web',       max:30,  def:8},
-            {k:'ps',  ic:'shop',         label:'Play Store',max:300, def:60},
+            {k:'ps',  ic:'shop',         label:'Play Store',max:300, def:30},
             {k:'fb',  ic:'thumb_up',     label:'Facebook',  max:300, def:0},
             {k:'tt',  ic:'music_note',   label:'TikTok',    max:300, def:0},
           ].map(s => `
@@ -135,16 +135,17 @@ window.renderScrape = function () {
           `).join('')}
         </div>
 
-        <div class="flex gap-6 mb-4">
+        <div class="flex gap-6 mb-2">
           <label class="toggle-wrap">
-            <label class="toggle"><input type="checkbox" id="do-bot"/><span class="toggle-slider"></span></label>
+            <label class="toggle"><input type="checkbox" id="do-bot" checked/><span class="toggle-slider"></span></label>
             <span class="toggle-label">Deteksi bot/spam</span>
           </label>
           <label class="toggle-wrap">
-            <label class="toggle"><input type="checkbox" id="do-ent"/><span class="toggle-slider"></span></label>
+            <label class="toggle"><input type="checkbox" id="do-ent" checked/><span class="toggle-slider"></span></label>
             <span class="toggle-label">Tag entity mentions</span>
           </label>
         </div>
+        <p class="text-[11px] text-on-surface-variant mb-4">Target jumlah = batas atas. Hasil bisa lebih sedikit (duplikat dibuang, komentar pendek difilter, stok komentar platform habis) — capaian per sumber selalu dilaporkan di log &amp; KPI.</p>
 
         <button class="btn btn-primary btn-full" id="btn-run-kw" onclick="runScrapeKeyword()">
           <span class="material-symbols-outlined text-[18px]">radar</span> Mulai Scrape + Analisis
@@ -196,13 +197,32 @@ window.renderScrape = function () {
   </div><!-- /tab url -->
 </div><!-- /scrape-tabs -->
 
-<!-- Progress / log -->
-<div id="scrape-progress" style="display:none" class="section-card mb-4">
+<!-- Log riwayat (persisten, retensi 6 jam) -->
+<div id="scrape-progress" class="section-card mb-4" style="display:none">
   <div class="flex items-center gap-3 mb-3">
     <div class="spinner"></div>
     <span class="text-[13px] font-semibold text-on-surface" id="progress-label">Scraping...</span>
   </div>
   <div class="progress-wrap mb-3"><div class="progress-bar" id="progress-bar" style="width:10%"></div></div>
+</div>
+
+<!-- Riwayat scrape (dipertahankan 6 jam) -->
+<div class="section-card mb-4">
+  <div class="flex items-center justify-between mb-3">
+    <div class="section-title mb-0"><span class="material-symbols-outlined">history</span> Riwayat Scrape <span class="text-[11px] font-normal text-on-surface-variant ml-1">· retensi 6 jam</span></div>
+    <button class="btn btn-secondary btn-sm" onclick="refreshHistory()"><span class="material-symbols-outlined text-[16px]">refresh</span> Muat ulang</button>
+  </div>
+  <div style="overflow-x:auto;">
+    <table class="data-table">
+      <thead><tr><th>Waktu (UTC)</th><th>Mode</th><th>Keyword / URL</th><th>Baris</th><th>Aksi</th></tr></thead>
+      <tbody id="history-body"><tr><td colspan="5" class="text-on-surface-variant">memuat...</td></tr></tbody>
+    </table>
+  </div>
+</div>
+
+<!-- Log live -->
+<div class="section-card mb-4">
+  <div class="section-title"><span class="material-symbols-outlined">terminal</span> Log Scrape</div>
   <div class="terminal">
     <div class="terminal-bar">
       <span style="width:9px;height:9px;border-radius:50%;background:#ff5f56;display:inline-block;"></span>
@@ -210,7 +230,7 @@ window.renderScrape = function () {
       <span style="width:9px;height:9px;border-radius:50%;background:#27c93f;display:inline-block;"></span>
       <span class="terminal-title ml-2">scrape log</span>
     </div>
-    <pre class="terminal-body" id="log-body">menunggu...</pre>
+    <pre class="terminal-body" id="log-body">Belum ada scrape. Riwayat log tersimpan di tabel Riwayat Scrape di atas.</pre>
   </div>
 </div>
 
@@ -220,6 +240,7 @@ window.renderScrape = function () {
 
   initTabs('scrape-tabs');
   loadSessionStatus();
+  refreshHistory();
 };
 
 // ── Credential status ──────────────────────────────
@@ -392,7 +413,52 @@ function stopProgress() {
 
 function showLogs(logs) {
   const el = document.getElementById('log-body');
-  if (el) el.textContent = (logs || []).join('\n');
+  if (el) el.textContent = (logs && logs.length) ? logs.join('\n') : '(tidak ada log)';
+}
+
+// ── Riwayat scrape (retensi 6 jam) ─────────────────
+async function refreshHistory() {
+  const tbody = document.getElementById('history-body');
+  if (!tbody) return;
+  try {
+    const d = await apiGet('/api/history');
+    if (!d.items || !d.items.length) {
+      tbody.innerHTML = '<tr><td colspan="5" class="text-on-surface-variant">Belum ada riwayat. Jalankan scrape — hasil + log tersimpan di sini selama 6 jam.</td></tr>';
+      return;
+    }
+    tbody.innerHTML = d.items.map(h => {
+      const t = new Date(h.created).toLocaleString('id-ID', { dateStyle: 'short', timeStyle: 'short' });
+      const label = esc((h.label || '').slice(0, 60));
+      return `<tr>
+        <td class="mono text-[12px]">${t}</td>
+        <td><span class="chip ${h.kind === 'url' ? 'chip-info' : 'chip-primary'}">${h.kind}</span></td>
+        <td class="text-cell" title="${label}">${label}</td>
+        <td class="mono">${fmt(h.row_count)}</td>
+        <td class="whitespace-nowrap">
+          <button class="btn btn-secondary btn-sm" onclick="loadHistory('${h.id}')"><span class="material-symbols-outlined text-[14px]">visibility</span> Buka</button>
+          <a class="btn btn-secondary btn-sm" href="/api/history/${h.id}/csv"><span class="material-symbols-outlined text-[14px]">download</span> CSV</a>
+        </td>
+      </tr>`;
+    }).join('');
+  } catch (e) {
+    tbody.innerHTML = `<tr><td colspan="5" class="text-red-600">Gagal memuat riwayat: ${esc(String(e))}</td></tr>`;
+  }
+}
+
+async function loadHistory(hid) {
+  try {
+    const d = await apiGet(`/api/history/${hid}`);
+    if (!d.ok) throw new Error(d.error || 'Gagal');
+    App.state.rows = d.rows;
+    App.state.meta = d.meta || {};
+    App.state.logs = d.logs || [];
+    showLogs(d.logs);
+    renderResults();
+    toast(`Riwayat ${d.label || hid} dimuat (${fmt(d.rows.length)} baris)`, 'ok');
+    document.getElementById('scrape-results')?.scrollIntoView({ behavior: 'smooth' });
+  } catch (e) {
+    toast(String(e), 'err');
+  }
 }
 
 // ── Render results ─────────────────────────────────
@@ -404,14 +470,36 @@ function renderResults() {
   const st  = computeStats(rows);
   const meta= App.state.meta;
 
+  // Capaian per sumber (target vs hasil)
+  const targets = meta.targets || {};
+  const perSrc = {};
+  for (const r of rows) perSrc[r.source] = (perSrc[r.source] || 0) + 1;
+  const tgtKeys = Object.keys(targets);
+  const capaians = tgtKeys.length
+    ? tgtKeys.map(k => {
+        const key = ({'Instagram':'instagram','YouTube':'youtube','Web':'web','Play Store':'playstore','Facebook':'facebook','TikTok':'tiktok'})[k] || k.toLowerCase();
+        const got = perSrc[key] || 0;
+        const ok  = got >= (targets[k] * 0.9);
+        return `<span class="chip ${ok ? 'chip-ok' : 'chip-warn'}" style="${ok ? '' : 'background:#fef3c7;color:#92400e'}">${esc(k)} ${got}/${targets[k]}</span>`;
+      }).join(' ')
+    : '';
+
+  // Bot & entity availability
+  const botRows  = rows.filter(r => r.is_bot_suspect !== undefined && r.is_bot_suspect !== null);
+  const botCount = botRows.filter(r => r.is_bot_suspect === true || r.is_bot_suspect === 'True').length;
+  const entRows  = rows.filter(r => r.entity_mentions && String(r.entity_mentions).trim());
+  const showTrust = botRows.length > 0 || entRows.length > 0;
+
   el.innerHTML = `
 <!-- KPI row -->
-<div class="grid grid-cols-2 xl:grid-cols-4 gap-3 mb-5">
+<div class="grid grid-cols-2 xl:grid-cols-4 gap-3 mb-3">
   ${kpiCard('Total Teks Dianalisis', fmt(st.total), `${[...new Set(rows.map(r=>r.source))].length} sumber · ${esc(meta.keyword||'')}`, 'analytics', '#005d97')}
-  ${kpiCard('Net Sentiment Score', (st.skor>=0?'+':'') + st.skor.toFixed(1), `GSS ${st.gss.toFixed(1)}/100`, 'sentiment_very_satisfied', st.skor >= 0 ? '#1e9e6a' : '#d64545')}
+  ${kpiCard('Net Sentiment Score', (st.skor>=0?'+':'') + st.skor.toFixed(1), `P ${st.cnt.Positif} · Neg ${st.cnt.Negatif} dari ${st.total}`, 'sentiment_very_satisfied', st.skor >= 0 ? '#1e9e6a' : '#d64545')}
   ${kpiCard('Rasio Positif', st.pct.Positif.toFixed(1)+'%', fmt(st.cnt.Positif)+' komentar', 'thumb_up', '#1e9e6a')}
   ${kpiCard('Negatif Alert', st.pct.Negatif.toFixed(1)+'%', fmt(st.cnt.Negatif)+' komentar', 'notification_important', '#d64545')}
 </div>
+${capaians ? `<div class="flex flex-wrap items-center gap-2 mb-4"><span class="text-[11px] font-bold uppercase tracking-wider text-outline">Capaian:</span>${capaians}<span class="text-[11px] text-on-surface-variant ml-1">target = batas atas</span></div>` : ''}
+${showTrust ? renderTrustSection(rows, botRows.length, botCount, entRows.length) : ''}
 
 <!-- Distribusi + top comments -->
 <div class="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-5">
@@ -466,7 +554,7 @@ function renderResults() {
       <table class="data-table" id="results-table">
         <thead><tr>
           <th>Sentimen</th><th>Skor</th><th>Sumber</th><th>Kategori</th>
-          <th>Teks</th><th>Author</th><th>Likes</th>
+          <th>Teks</th><th>Author</th><th>Likes</th><th>Autentisitas</th><th>Entitas</th>
         </tr></thead>
         <tbody id="results-tbody"></tbody>
       </table>
@@ -480,6 +568,79 @@ function renderResults() {
   renderDonut('chart-donut-scrape', st);
   filterTable();
 }
+
+// ── Trust section: bot detection + entity mentions ─
+function renderTrustSection(rows, botTotal, botCount, entCount) {
+  // Chart 1: autentisitas per sumber (stacked)
+  const srcMap = {};
+  for (const r of rows) {
+    if (r.is_bot_suspect === undefined || r.is_bot_suspect === null) continue;
+    if (!srcMap[r.source]) srcMap[r.source] = { asli: 0, bot: 0 };
+    const isBot = r.is_bot_suspect === true || r.is_bot_suspect === 'True';
+    srcMap[r.source][isBot ? 'bot' : 'asli']++;
+  }
+  const srcs = Object.keys(srcMap);
+  // Chart 2: entity terbanyak
+  const entCnt = {};
+  for (const r of rows) {
+    if (!r.entity_mentions) continue;
+    try {
+      const m = typeof r.entity_mentions === 'string' ? JSON.parse(r.entity_mentions) : r.entity_mentions;
+      for (const cat of Object.keys(m || {})) {
+        (m[cat] || []).forEach(e => { const k = `${e}`; entCnt[k] = (entCnt[k] || 0) + 1; });
+      }
+    } catch (_) {}
+  }
+  const entTop = Object.entries(entCnt).sort((a, b) => b[1] - a[1]).slice(0, 10);
+
+  let charts = '';
+  if (srcs.length) {
+    charts += `<div><div class="text-[11px] font-bold text-on-surface-variant mb-1">Asli vs dugaan bot per sumber</div><div id="chart-trust-bot" class="plotly-chart"></div></div>`;
+  }
+  if (entTop.length) {
+    charts += `<div><div class="text-[11px] font-bold text-on-surface-variant mb-1">Pihak/entitas ikut disebut</div><div id="chart-trust-ent" class="plotly-chart"></div></div>`;
+  }
+
+  setTimeout(() => {
+    if (srcs.length) {
+      Plotly.newPlot('chart-trust-bot', [
+        { type: 'bar', name: 'Asli', x: srcs.map(s => SOURCE_LABEL[s] || s), y: srcs.map(s => srcMap[s].asli), marker: { color: '#1e9e6a' } },
+        { type: 'bar', name: 'Dugaan bot', x: srcs.map(s => SOURCE_LABEL[s] || s), y: srcs.map(s => srcMap[s].bot), marker: { color: '#d64545' } },
+      ], {
+        barmode: 'stack', height: 220, margin: { t: 5, b: 30, l: 30, r: 5 },
+        legend: { orientation: 'h', yanchor: 'bottom', y: 1.02, xanchor: 'right', x: 1 },
+        yaxis: { gridcolor: '#e3eef7' },
+        paper_bgcolor: 'rgba(0,0,0,0)', plot_bgcolor: 'rgba(0,0,0,0)',
+      }, { displayModeBar: false });
+    }
+    if (entTop.length) {
+      Plotly.newPlot('chart-trust-ent', [{
+        type: 'bar', orientation: 'h', x: entTop.map(e => e[1]), y: entTop.map(e => e[0]), marker: { color: '#004a7c' },
+      }], {
+        height: Math.max(200, entTop.length * 28), showlegend: false,
+        margin: { t: 5, b: 5, l: 5, r: 5 }, yaxis: { autorange: 'reversed' },
+        paper_bgcolor: 'rgba(0,0,0,0)', plot_bgcolor: 'rgba(0,0,0,0)',
+      }, { displayModeBar: false });
+    }
+  }, 50);
+
+  return `
+<!-- Trust: bot + entity -->
+<div class="section-card mb-5">
+  <div class="flex items-center justify-between mb-1">
+    <div class="section-title mb-0"><span class="material-symbols-outlined">verified_user</span> Autentisitas &amp; Pihak Terkait</div>
+    <div class="flex gap-2">
+      ${botTotal ? `<span class="chip ${botCount ? 'chip-neg' : 'chip-ok'}">${botCount}/${botTotal} dugaan bot</span>` : ''}
+      ${entCount ? `<span class="chip chip-info">${entCount} baris menyebut pihak lain</span>` : ''}
+    </div>
+  </div>
+  <p class="section-desc">Deteksi bot = heuristic (pola username, teks spam, duplikat). Entity = pihak/organisasi ikut disebut dalam komentar. Keduanya aktif via toggle di Konfigurasi Scrape.</p>
+  <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">${charts}</div>
+</div>`;
+}
+
+// ── Render results (helper position: after renderResults) ──
+function renderResults_end() {}
 
 // ── KPI card HTML ──────────────────────────────────
 function kpiCard(label, value, sub, icon, color) {
@@ -548,7 +709,15 @@ function filterTable() {
     return true;
   }).slice(0, 200);
 
-  tbody.innerHTML = rows.map(r => `
+  tbody.innerHTML = rows.map(r => {
+    const isBot = r.is_bot_suspect === true || r.is_bot_suspect === 'True';
+    const botCell = (r.is_bot_suspect === undefined || r.is_bot_suspect === null)
+      ? '<td class="text-on-surface-variant">—</td>'
+      : `<td><span class="chip ${isBot ? 'chip-neg' : 'chip-ok'}" title="${esc(r.bot_reasons || '')}">${isBot ? 'bot?' : 'asli'}</span></td>`;
+    const entCell = r.entity_categories
+      ? `<td class="text-cell" title="${esc(r.entity_mentions || '')}">${esc(r.entity_categories)}</td>`
+      : '<td class="text-on-surface-variant">—</td>';
+    return `
 <tr>
   <td>${sentimentBadge(r.label)}</td>
   <td><span class="mono text-[12px]">${(r.score||0).toFixed(3)}</span></td>
@@ -557,7 +726,10 @@ function filterTable() {
   <td class="text-cell" title="${esc(r.text||'')}">${esc(String(r.text||'').slice(0,80))}</td>
   <td>${esc(r.author||'')}</td>
   <td>${r.likes||0}</td>
-</tr>`).join('');
+  ${botCell}
+  ${entCell}
+</tr>`;
+  }).join('');
 
   const countEl = document.getElementById('table-count');
   if (countEl) countEl.textContent = `${rows.length} dari ${App.state.rows.length} data`;

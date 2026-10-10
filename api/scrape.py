@@ -67,6 +67,7 @@ def _run_scrape_keyword(req: ScrapeKeywordRequest):
     from core import run_sentiment, OUT_DIR
     from datetime import datetime, timezone
 
+    targets = {}   # nama sumber -> target (untuk laporan capaian)
     rows = []
     logs = []
 
@@ -76,11 +77,12 @@ def _run_scrape_keyword(req: ScrapeKeywordRequest):
     def ambil(name, fn, n):
         if n <= 0:
             return
+        targets[name] = n
         log(f"> {name}: mulai (target {n})...")
         try:
             got = fn(req.keyword.strip(), n, log)
             rows.extend(got)
-            log(f"OK {name}: {len(got)} baris")
+            log(f"OK {name}: {len(got)}/{n} baris")
         except Exception as e:
             log(f"FAIL {name}: {type(e).__name__} {str(e)[:200]}")
 
@@ -92,7 +94,20 @@ def _run_scrape_keyword(req: ScrapeKeywordRequest):
     if req.facebook > 0:  ambil("Facebook",   scrape_facebook,  req.facebook)
     if req.tiktok > 0:    ambil("TikTok",     scrape_tiktok,    req.tiktok)
 
+    raw_count = len(rows)
     rows = dedupe(rows)
+    deduped_count = len(rows)
+    if raw_count != deduped_count:
+        log(f"dedupe: {raw_count} → {deduped_count} baris (duplikat dibuang)")
+    # Laporan capaian per sumber
+    per_src = {}
+    for r in rows:
+        per_src[r.get("source", "?")] = per_src.get(r.get("source", "?"), 0) + 1
+    for name, tgt in targets.items():
+        key = {"YouTube": "youtube", "Instagram": "instagram", "Web": "web",
+               "Play Store": "playstore", "Facebook": "facebook", "TikTok": "tiktok"}.get(name, name.lower())
+        log(f"CAPAIAN {name}: {per_src.get(key, 0)}/{tgt} (target = batas atas; dedupe/filter mengurangi)")
+
     if not rows:
         return {"ok": False, "error": "Tidak ada data terkumpul. Cek kredensial atau keyword.", "logs": logs}
 
@@ -109,14 +124,32 @@ def _run_scrape_keyword(req: ScrapeKeywordRequest):
     out_csv = OUT_DIR / f"sentiment_{req.keyword.strip().replace(' ','_')}_{stamp}.csv"
     df.to_csv(out_csv, index=False, encoding="utf-8")
 
+    records = _df_to_records(df)
+
+    # Simpan riwayat lengkap (retensi 6 jam)
+    try:
+        from api.history import save_history
+        hid = save_history("keyword", req.keyword.strip(), {
+            "keyword": req.keyword.strip(),
+            "targets": targets,
+            "durasi": round(time.time() - t0),
+            "out_csv": str(out_csv),
+            "detect_bots": req.detect_bots,
+            "tag_entities": req.tag_entities,
+        }, logs, records)
+        log(f"history disimpan: {hid} (retensi 6 jam)")
+    except Exception as e:
+        log(f"history gagal disimpan: {type(e).__name__} {str(e)[:120]}")
+
     return {
         "ok": True,
-        "rows": _df_to_records(df),
+        "rows": records,
         "meta": {
             "keyword": req.keyword.strip(),
             "stamp": stamp,
             "durasi": round(time.time() - t0),
             "mode": "keyword",
+            "targets": targets,
             "out_csv": str(out_csv),
         },
         "logs": logs,
@@ -140,6 +173,7 @@ def _run_scrape_url(req: ScrapeUrlRequest):
         logs.append(str(msg))
 
     t0 = time.time()
+    log(f"> {req.source} (URL): mulai (target {req.limit})...")
     try:
         rows = scraper(req.url.strip(), req.limit, log)
     except RuntimeError as e:
@@ -149,6 +183,8 @@ def _run_scrape_url(req: ScrapeUrlRequest):
 
     if not rows:
         return {"ok": False, "error": "Tidak ada komentar terkumpul", "logs": logs}
+
+    log(f"OK {req.source}: {len(rows)}/{req.limit} baris")
 
     df = pd.DataFrame(rows)
     for col in ["text", "source", "author", "date", "likes", "url"]:
@@ -162,15 +198,34 @@ def _run_scrape_url(req: ScrapeUrlRequest):
     out_csv = OUT_DIR / f"sentiment_{req.source}_url_{stamp}.csv"
     df.to_csv(out_csv, index=False, encoding="utf-8")
 
+    records = _df_to_records(df)
+
+    # Simpan riwayat lengkap (retensi 6 jam)
+    try:
+        from api.history import save_history
+        save_history("url", req.url.strip()[:120], {
+            "url": req.url.strip(),
+            "source": req.source,
+            "target": req.limit,
+            "durasi": round(time.time() - t0),
+            "out_csv": str(out_csv),
+            "detect_bots": req.detect_bots,
+            "tag_entities": req.tag_entities,
+        }, logs, records)
+        log("history disimpan (retensi 6 jam)")
+    except Exception as e:
+        log(f"history gagal disimpan: {type(e).__name__} {str(e)[:120]}")
+
     return {
         "ok": True,
-        "rows": _df_to_records(df),
+        "rows": records,
         "meta": {
             "keyword": req.url[:80],
             "stamp": stamp,
             "durasi": round(time.time() - t0),
             "mode": "url",
             "source": req.source,
+            "targets": {req.source: req.limit},
             "out_csv": str(out_csv),
         },
         "logs": logs,

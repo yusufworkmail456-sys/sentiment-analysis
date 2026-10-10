@@ -153,11 +153,10 @@ def _scrape_ig_instagrapi(keyword, max_comments=100, log=print):
 
 
 # ----------------------------------------------------------------- YouTube
-def scrape_yt(keyword, max_comments=100, log=print):
+def _yt_search_entries(keyword, want, log):
+    """Cari video YT dengan retry: direct → WARP proxy → yt-dlp flat ulang.
+    Return list entri video (channel results dibuang)."""
     import yt_dlp
-    from youtube_comment_downloader import (SORT_BY_POPULAR, SORT_BY_RECENT,
-                                            YoutubeCommentDownloader)
-    _yt_sort = SORT_BY_RECENT  # newest first for trend tracking
 
     def search(query, proxy=None):
         opts = {"quiet": True, "extract_flat": True, "skip_download": True,
@@ -165,28 +164,26 @@ def scrape_yt(keyword, max_comments=100, log=print):
         if proxy:
             opts["proxy"] = proxy
         with yt_dlp.YoutubeDL(opts) as ydl:
-            info = ydl.extract_info(f"ytsearch8:{query}", download=False)
+            info = ydl.extract_info(f"ytsearch{max(8, want)}:{query}", download=False)
         return info.get("entries") or []
 
     entries = []
-    try:
-        entries = search(keyword)
-        log(f"YT: search ok, {len(entries)} video")
-    except Exception as e:
-        log(f"YT: search direct gagal ({str(e)[:80]}), coba via WARP ...")
-        entries = search(keyword, proxy=WARP_PROXY)
-        log(f"YT: search via WARP ok, {len(entries)} video")
-    if not entries:
-        return []
-
-    dl = YoutubeCommentDownloader()
-    rows = []
+    last_err = None
+    for attempt, proxy in enumerate([None, WARP_PROXY, None], 1):
+        try:
+            entries = search(keyword, proxy=proxy)
+            log(f"YT: search ok (percobaan {attempt}), {len(entries)} entri")
+            break
+        except Exception as e:
+            last_err = e
+            log(f"YT: search percobaan {attempt} gagal ({str(e)[:80]})")
+    if not entries and last_err:
+        log(f"YT: search gagal total: {type(last_err).__name__} {str(last_err)[:120]}")
     video_entries = []
     for ent in entries:
         ent_url = ent.get("url", "")
         ent_id = ent.get("id", "")
-        # Skip channel results: their URL contains '/channel/' and their ID
-        # starts with 'UC' (24 chars).  Only keep actual video entries.
+        # Skip channel results: URL '/channel/' atau id UC+24 chars
         if "/channel/" in ent_url:
             continue
         if ent_id and len(ent_id) == 24 and ent_id.startswith("UC"):
@@ -194,9 +191,54 @@ def scrape_yt(keyword, max_comments=100, log=print):
         if "watch?v=" not in ent_url and not ent_id:
             continue
         video_entries.append(ent)
+    return video_entries
 
-    log(f"YT: {len(video_entries)} video (filtered from {len(entries)} entries)")
-    for ent in video_entries:
+
+def _yt_comments_via_downloader(url, sisa, collect):
+    """Engine 1: youtube-comment-downloader. Return jumlah komentar terkumpul."""
+    from youtube_comment_downloader import YoutubeCommentDownloader, SORT_BY_RECENT
+    dl = YoutubeCommentDownloader()
+    got = 0
+    for c in dl.get_comments_from_url(url, sort_by=SORT_BY_RECENT):
+        if got >= sisa:
+            break
+        t = (c.get("text") or "").replace("\n", " ").strip()
+        if not t:
+            continue
+        tp = c.get("time_parsed")
+        if isinstance(tp, (int, float)) and tp:
+            date = datetime.fromtimestamp(tp, tz=timezone.utc).isoformat()
+        elif hasattr(tp, "isoformat"):
+            date = tp.isoformat()
+        else:
+            date = ""
+        collect({
+            "source": "youtube",
+            "text": t,
+            "author": c.get("author", "") or "",
+            "date": date,
+            "likes": c.get("votes", 0) or 0,
+            "url": url,
+        })
+        got += 1
+    return got
+
+
+def scrape_yt(keyword, max_comments=100, log=print):
+    """Komentar YT per keyword. Robust: search retry + 2 engine komentar
+    (youtube-comment-downloader → yt-dlp) + chase target dengan video tambahan."""
+    rows = []
+
+    def collect(r):
+        rows.append(r)
+
+    entries = _yt_search_entries(keyword, max_comments, log)
+    if not entries:
+        log("YT: tidak ada video ditemukan")
+        return []
+
+    log(f"YT: {len(entries)} video (filtered dari hasil search)")
+    for ent in entries:
         if len(rows) >= max_comments:
             break
         vid = ent.get("id")
@@ -206,34 +248,59 @@ def scrape_yt(keyword, max_comments=100, log=print):
         sisa = max_comments - len(rows)
         got = 0
         try:
-            for c in dl.get_comments_from_url(url, sort_by=_yt_sort):
-                t = (c.get("text") or "").replace("\n", " ").strip()
-                if not t:
-                    continue
-                tp = c.get("time_parsed")
-                if isinstance(tp, (int, float)) and tp:
-                    date = datetime.fromtimestamp(tp, tz=timezone.utc).isoformat()
-                elif hasattr(tp, "isoformat"):
-                    date = tp.isoformat()
-                else:
-                    date = ""
-                rows.append({
-                    "source": "youtube",
-                    "text": t,
-                    "author": c.get("author", "") or "",
-                    "date": date,
-                    "likes": c.get("votes", 0) or 0,
-                    "url": url,
-                })
-                got += 1
-                if got >= sisa:
-                    break
+            got = _yt_comments_via_downloader(url, sisa, collect)
         except Exception as e:
-            log(f"YT: komentar {vid} gagal: {type(e).__name__} {str(e)[:80]}")
-            continue
+            log(f"YT: downloader gagal {vid} ({type(e).__name__} {str(e)[:60]}), coba yt-dlp ...")
+        # Engine 2: yt-dlp comments jika engine 1 tidak menghasilkan apa pun
+        if got == 0:
+            got = _yt_comments_via_ytdlp(url, sisa, collect, log)
         judul = (ent.get("title") or "")[:50]
-        log(f"YT: {judul}: +{got} (total {len(rows)})")
+        if got:
+            log(f"YT: {judul}: +{got} (total {len(rows)})")
+        else:
+            log(f"YT: {judul}: 0 komentar (dinonaktifkan atau diblokir)")
+    if rows and len(rows) < max_comments:
+        log(f"YT: target {max_comments}, didapat {len(rows)} (stok komentar video habis)")
     return rows
+
+
+def _yt_comments_via_ytdlp(url, sisa, collect, log=print):
+    """Engine 2: ambil komentar via yt-dlp (fallback downloader).
+    Return jumlah komentar terkumpul."""
+    try:
+        import yt_dlp
+
+        opts = {"quiet": True, "skip_download": True, "extractor_retries": 1,
+                "socket_timeout": 20}
+        with yt_dlp.YoutubeDL(opts) as ydl:
+            info = ydl.extract_info(url, download=False)
+        got = 0
+        for c in (info.get("comments") or []):
+            if got >= sisa:
+                break
+            t = (c.get("text") or "").replace("\n", " ").strip()
+            if len(t) < 2:
+                continue
+            date = ""
+            ts = c.get("timestamp")
+            if ts:
+                try:
+                    date = datetime.fromtimestamp(ts, tz=timezone.utc).isoformat()
+                except Exception:
+                    date = ""
+            collect({
+                "source": "youtube",
+                "text": t,
+                "author": c.get("author", "") or "",
+                "date": date,
+                "likes": c.get("like_count", 0) or 0,
+                "url": url,
+            })
+            got += 1
+        return got
+    except Exception as e:
+        log(f"YT: yt-dlp fallback gagal ({type(e).__name__} {str(e)[:80]})")
+        return 0
 
 
 # -------------------------------------------------------------- Web berita

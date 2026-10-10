@@ -2,7 +2,9 @@
 """Taspen Sentiment Platform – FastAPI entrypoint.
 
 Jalankan:
-  ./venv/bin/uvicorn main:app --host 127.0.0.1 --port 9120 --reload
+  ./venv/bin/uvicorn main:app --host 127.0.0.1 --port 9120
+
+Riwayat scrape disimpan di hasil/history/*.json (retensi 6 jam, dibersihkan otomatis).
 """
 import sys
 from pathlib import Path
@@ -18,7 +20,7 @@ import traceback
 from fastapi import Request
 from fastapi.responses import JSONResponse
 
-app = FastAPI(title="Taspen Sentiment Platform", version="2.0.0")
+app = FastAPI(title="Taspen Sentiment Platform", version="2.1.0")
 
 
 @app.exception_handler(Exception)
@@ -35,12 +37,16 @@ from api.sentiment import router as sentiment_router  # noqa: E402
 from api.ai        import router as ai_router         # noqa: E402
 from api.export    import router as export_router     # noqa: E402
 from api.sessions  import router as sessions_router   # noqa: E402
+from api.history   import router as history_router    # noqa: E402
+from api.modelinfo import router as modelinfo_router  # noqa: E402
 
 app.include_router(scrape_router,    prefix="/api")
 app.include_router(sentiment_router, prefix="/api")
 app.include_router(ai_router,        prefix="/api")
 app.include_router(export_router,    prefix="/api")
 app.include_router(sessions_router,  prefix="/api")
+app.include_router(history_router,   prefix="/api")
+app.include_router(modelinfo_router, prefix="/api")
 
 # ── Static files ──────────────────────────────────────────────────────────
 app.mount("/static", StaticFiles(directory="static"), name="static")

@@ -103,6 +103,49 @@ function navigate(page) {
   p?.render?.();
 }
 
+// ── Plotly global layout: konsisten untuk semua chart ──
+const PLOT_FONT = { family: "'Plus Jakarta Sans', sans-serif", size: 12, color: '#465e71' };
+const PLOT_LAYOUT_BASE = {
+  font: PLOT_FONT,
+  margin: { t: 36, b: 52, l: 62, r: 26 },
+  paper_bgcolor: 'rgba(0,0,0,0)',
+  plot_bgcolor: 'rgba(0,0,0,0)',
+  legend: { orientation: 'h', yanchor: 'bottom', y: 1.04, xanchor: 'right', x: 1, font: { size: 11 } },
+  xaxis: { automargin: true, gridcolor: '#e3eef7', zeroline: false, title: { font: { size: 11 } } },
+  yaxis: { automargin: true, gridcolor: '#e3eef7', zeroline: false, title: { font: { size: 11 } } },
+};
+
+function plotLayout(overrides) {
+  return Object.assign({}, PLOT_LAYOUT_BASE, overrides || {});
+}
+
+// Semua Plotly.newPlot memakai template di atas; layout spesifik tetap menang.
+(function patchPlotly() {
+  if (!window.Plotly) return;
+  const _newPlot = Plotly.newPlot.bind(Plotly);
+  Plotly.newPlot = function (id, data, layout, config) {
+    const merged = plotLayout(layout || {});
+    // automargin wajib supaya judul axis/label tidak terpotong di kolom sempit
+    ['xaxis', 'yaxis', 'xaxis2', 'yaxis2'].forEach(ax => {
+      if (merged[ax]) merged[ax].automargin = true;
+    });
+    return _newPlot(id, data, merged, Object.assign({ responsive: true, displayModeBar: false }, config || {}));
+  };
+})();
+
+// Reflow chart saat tab berganti (chart yang dirender dalam panel tersembunyi
+// bisa berukuran 0 dan tampak gepeng setelah tampil).
+function resizePlots(container) {
+  if (!window.Plotly) return;
+  const scope = container || document;
+  scope.querySelectorAll('.plotly-chart, .js-plotly-plot').forEach(el => {
+    if (el.offsetParent !== null) {        // hanya elemen yang benar-benar terlihat
+      try { Plotly.Plots.resize(el); } catch (_) {}
+    }
+  });
+}
+window.addEventListener('resize', () => resizePlots());
+
 // ── Tabs helper ────────────────────────────────────
 function initTabs(containerId) {
   const container = document.getElementById(containerId);
@@ -114,6 +157,10 @@ function initTabs(containerId) {
       container.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
       btn.classList.add('active');
       container.querySelector(`[data-panel="${target}"]`)?.classList.add('active');
+      // reflow setelah panel tampil
+      requestAnimationFrame(() => {
+        setTimeout(() => resizePlots(container), 40);
+      });
     });
   });
 }
@@ -168,4 +215,9 @@ document.addEventListener('DOMContentLoaded', () => {
     a.addEventListener('click', e => { e.preventDefault(); navigate(a.dataset.page); });
   });
   navigate('scrape');
+  // Model AI info di sidebar
+  apiGet('/api/model/info').then(d => {
+    const el = document.getElementById('engine-model');
+    if (el && d.ok) el.textContent = d.llm_model;
+  }).catch(() => {});
 });
