@@ -18,8 +18,14 @@ from pathlib import Path
 import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
-import streamlit as st
 import httpx
+
+# Optional Streamlit — only imported if running in Streamlit context
+try:
+    import streamlit as st
+    _HAS_ST = True
+except ImportError:
+    _HAS_ST = False
 
 sys.path.insert(0, str(Path(__file__).parent))
 from multiscrape import dedupe, scrape_ig, scrape_web, scrape_yt  # noqa: E402
@@ -27,7 +33,7 @@ from scrapers_extra import (  # noqa: E402
     scrape_facebook, scrape_tiktok, scrape_playstore,
     save_session, check_session, test_facebook, test_tiktok,
 )
-from categorize import classify_df  # noqa: E402
+from categorize import classify_df, detect_bot_df, tag_entities_df  # noqa: E402
 import config  # noqa: E402
 from icons import icon, icon_text, dot, badge
 import icons as ic
@@ -89,14 +95,25 @@ FONT_PATH = str(Path(__file__).parent / "assets" / "fonts" / "DejaVuSans.ttf")
 
 
 # ----------------------------------------------------------------- model
-@st.cache_resource(show_spinner="Memuat model sentiment...")
 def load_model():
-    from transformers import pipeline
-    return pipeline("text-classification", model=MODEL_NAME,
-                    truncation=True, max_length=128, device=-1)
+    """Load (and cache) the sentiment pipeline. Works in both FastAPI and Streamlit."""
+    if _HAS_ST:
+        @st.cache_resource(show_spinner="Memuat model sentiment...")
+        def _load():
+            from transformers import pipeline
+            return pipeline("text-classification", model=MODEL_NAME,
+                            truncation=True, max_length=128, device=-1)
+        return _load()
+    # FastAPI: simple module-level cache
+    if not hasattr(load_model, "_cache"):
+        from transformers import pipeline
+        load_model._cache = pipeline("text-classification", model=MODEL_NAME,
+                                     truncation=True, max_length=128, device=-1)
+    return load_model._cache
 
 
-def run_sentiment(df, progress=None):
+def run_sentiment(df, progress=None, detect_bots=False, tag_entities=False):
+    """Run sentiment analysis.  progress can be a Streamlit progress bar or None."""
     clf = load_model()
     texts = df["text"].astype(str).tolist()
     labels, scores = [], []
@@ -106,13 +123,26 @@ def run_sentiment(df, progress=None):
         res = clf(batch)
         labels += [r["label"] for r in res]
         scores += [round(r["score"], 4) for r in res]
-        if progress is not None:
-            progress.progress(min(1.0, (i + B) / max(len(texts), 1)),
-                              text=f"Sentiment {min(i+B, len(texts))}/{len(texts)}")
+        if progress is not None and _HAS_ST:
+            try:
+                progress.progress(min(1.0, (i + B) / max(len(texts), 1)),
+                                  text=f"Sentiment {min(i+B, len(texts))}/{len(texts)}")
+            except Exception:
+                pass
     df["label"] = [LABEL_ID.get(str(l).lower(), l) for l in labels]
     df["score"] = scores
     df["keyakinan"] = ["yakin" if s >= 0.6 else "ragu" for s in scores]
+    if "rating" in df.columns:
+        df["rating"] = pd.to_numeric(df["rating"], errors="coerce")
     df = classify_df(df)
+    if detect_bots:
+        df = detect_bot_df(df)
+    if tag_entities:
+        df = tag_entities_df(df)
+    # Normalisasi kolom opsional supaya JSON aman
+    for opt in ("rating", "is_bot_suspect"):
+        if opt in df.columns:
+            df[opt] = df[opt].where(df[opt].notna(), None)
     return df
 
 
@@ -408,7 +438,8 @@ def export_pdf(df, meta, ai_summary=None, ai_reco=None):
         pdf.cell(0, 10, title, new_x="LMARGIN", new_y="NEXT")
         try:
             img_bytes = fig.to_image(format="png", width=900, height=500, scale=2)
-            tmp_path = "/tmp/chart_export.png"
+            import tempfile
+            tmp_path = str(Path(tempfile.gettempdir()) / "chart_export.png")
             with open(tmp_path, "wb") as f:
                 f.write(img_bytes)
             pdf.image(tmp_path, x=15, w=180)
@@ -437,7 +468,8 @@ def export_pdf(df, meta, ai_summary=None, ai_reco=None):
             pdf.multi_cell(0, 5, clean)
 
     # Output
-    out_path = "/tmp/sentiment_report.pdf"
+    import tempfile
+    out_path = str(Path(tempfile.gettempdir()) / "sentiment_report.pdf")
     pdf.output(out_path)
     with open(out_path, "rb") as f:
         return f.read()

@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html lang="id" class="bg-background">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Taspen Sentiment Platform – by Mitra Digital</title>
+  <!-- Self-hosted fonts + icons (fully offline, fully customized) -->
+  <link rel="stylesheet" href="/static/css/fonts-local.css"/>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.plot.ly/plotly-2.32.0.min.js"></script>
+  <link rel="stylesheet" href="/static/css/app.css"/>
+  <script id="tailwind-config">
+    tailwind.config = {
+      darkMode: "class",
+      theme: {
+        extend: {
+          colors: {
+            /* Taspen brand palette */
+            primary:            "#005d97",
+            secondary:          "#0077c8",
+            tertiary:           "#0e7a52",
+            "primary-dark":     "#004a7c",
+            "primary-darker":   "#062a44",
+            gold:               "#e8c21d",
+            "gold-dark":        "#a88a00",
+            "primary-container":"#004a7c",
+            "secondary-container":"#0077c8",
+            "tertiary-container":"#1e9e6a",
+            "on-primary":       "#ffffff",
+            "on-secondary":     "#ffffff",
+            "on-tertiary":      "#ffffff",
+            "on-primary-fixed-variant": "#0f4a7d",
+            "on-secondary-fixed-variant": "#085e97",
+            "on-tertiary-fixed-variant": "#0e7a52",
+            "on-surface":       "#0d2b45",
+            "on-surface-variant":"#465e71",
+            "on-primary-fixed": "#062a44",
+            "on-tertiary-fixed":"#08351f",
+            "primary-fixed":    "#dcebf6",
+            "primary-fixed-dim":"#bcd7ea",
+            "secondary-fixed":  "#d9e7f2",
+            "secondary-fixed-dim":"#bcd7ea",
+            "tertiary-fixed":   "#a8e6c9",
+            "tertiary-fixed-dim":"#7fd4ab",
+            surface:            "#f4f8fb",
+            "surface-dim":      "#d5e2ec",
+            "surface-bright":   "#f4f8fb",
+            "surface-container-lowest":"#ffffff",
+            "surface-container-low": "#eef4f9",
+            "surface-container":     "#e3eef7",
+            "surface-container-high":"#dcebf6",
+            "surface-container-highest":"#d9e7f2",
+            "surface-variant":  "#d9e7f2",
+            "surface-tint":     "#005d97",
+            background:         "#f4f8fb",
+            outline:            "#6b8299",
+            "outline-variant":  "#d5e2ec",
+            "inverse-surface":  "#0d2b45",
+            "inverse-on-surface":"#eef4f9",
+            "inverse-primary":  "#bcd7ea",
+            error:              "#d64545",
+            "on-error":         "#ffffff",
+            "error-container":  "#f9dede",
+            "on-error-container":"#8f1d1d",
+          }
+        }
+      }
+    };
+  </script>
+</head>
+<body class="bg-background font-sans text-on-surface antialiased min-h-screen" style="font-family:'Plus Jakarta Sans',sans-serif;">
+
+<!-- ═══════════════════════════ SIDEBAR ═══════════════════════════ -->
+<aside id="sidebar" class="fixed left-0 top-0 h-full w-72 bg-surface-container-lowest z-50 flex flex-col shadow-[0_1px_8px_rgba(13,43,69,0.06)] border-r border-outline-variant/40 transition-transform duration-200">
+
+  <!-- Brand: logo Taspen + nama + versi -->
+  <div class="px-4 py-4 flex items-center gap-3 border-b border-outline-variant/30">
+    <img src="/assets/taspen.svg" alt="Taspen" class="h-10 w-auto object-contain flex-shrink-0"
+         onerror="this.style.display='none';document.getElementById('brand-fallback').style.display='flex'"/>
+    <div id="brand-fallback" style="display:none" class="w-10 h-10 rounded-lg bg-primary flex items-center justify-center text-on-primary font-bold text-sm flex-shrink-0">T</div>
+    <div class="flex flex-col min-w-0">
+      <span class="text-[13px] font-extrabold text-on-surface tracking-tight leading-tight">Taspen Sentiment Platform</span>
+      <span class="text-[10px] font-semibold text-outline mt-0.5" id="sb-version">v—</span>
+    </div>
+  </div>
+
+  <!-- Model status -->
+  <div class="px-4 py-2">
+    <div class="px-3 py-2 rounded-lg bg-surface-container-low flex items-center justify-between">
+      <div class="flex items-center gap-2">
+        <span class="w-2 h-2 rounded-full bg-tertiary-container animate-pulse"></span>
+        <span class="text-[12px] font-semibold text-on-surface">Model AI</span>
+      </div>
+      <span class="text-[11px] font-mono font-bold text-tertiary bg-tertiary-fixed px-1.5 py-0.5 rounded" id="engine-model">memuat…</span>
+    </div>
+  </div>
+
+  <div class="px-5 py-1">
+    <span class="text-[10px] font-extrabold uppercase tracking-widest text-outline">Analytics Workspaces</span>
+  </div>
+
+  <!-- Nav -->
+  <nav class="flex-1 px-3 py-1 flex flex-col gap-1">
+    <a href="#" class="nav-link active" data-page="scrape">
+      <span class="material-symbols-outlined text-[20px]">radar</span>
+      <span>Scrape &amp; Analisis</span>
+    </a>
+    <a href="#" class="nav-link" data-page="dashboard">
+      <span class="material-symbols-outlined text-[20px]">insights</span>
+      <span>Visualization Overview</span>
+    </a>
+    <a href="#" class="nav-link" data-page="sources">
+      <span class="material-symbols-outlined text-[20px]">folder_data</span>
+      <span>Per-Source Breakdown</span>
+    </a>
+    <a href="#" class="nav-link" data-page="historical">
+      <span class="material-symbols-outlined text-[20px]">history</span>
+      <span>Historical Analytics</span>
+    </a>
+    <a href="#" class="nav-link" data-page="ai">
+      <span class="material-symbols-outlined text-[20px]">auto_awesome</span>
+      <span>AI Insight</span>
+    </a>
+  </nav>
+
+  <!-- Sidebar footer: credit link -->
+  <div class="px-4 pb-4 pt-2 border-t border-outline-variant/30">
+    <a href="https://www.amital.co.id/" target="_blank" rel="noopener"
+       class="flex items-center justify-center gap-2 w-full py-2 rounded-lg bg-surface-container-low hover:bg-surface-container transition-colors group">
+      <span class="text-[11px] font-semibold text-on-surface-variant group-hover:text-primary transition-colors">by</span>
+      <span class="text-[13px] font-extrabold tracking-tight text-on-surface group-hover:text-primary transition-colors">Mitra Digital</span>
+      <span class="material-symbols-outlined text-[14px] text-outline group-hover:text-primary transition-colors">open_in_new</span>
+    </a>
+  </div>
+
+  <!-- Sidebar footer: volume meter -->
+  <div class="px-4 pb-4">
+    <div class="p-3 rounded-xl bg-surface-container-low flex flex-col gap-2">
+      <div class="flex items-center justify-between">
+        <span class="text-[12px] font-semibold text-on-surface">Data Teranalisis</span>
+        <span class="text-[11px] font-mono text-on-surface-variant" id="sb-volume">0 baris</span>
+      </div>
+      <div class="w-full h-1.5 rounded-full bg-surface-container-highest overflow-hidden">
+        <div class="h-full bg-primary rounded-full transition-all duration-500" id="sb-meter" style="width:0%"></div>
+      </div>
+      <div class="text-[11px] text-on-surface-variant" id="sb-keyword">—</div>
+    </div>
+  </div>
+</aside>
+
+<!-- ═══════════════════════════ MAIN ══════════════════════════════ -->
+<div class="pl-72 flex flex-col min-h-screen">
+
+  <!-- Top bar -->
+  <header class="fixed top-0 left-72 right-0 h-16 bg-surface-container-lowest/90 backdrop-blur-xl shadow-[0_1px_8px_rgba(13,43,69,0.06)] z-40 flex items-center justify-between px-6 border-b border-outline-variant/40">
+    <div class="flex items-center gap-3">
+      <div>
+        <div class="text-[15px] font-extrabold text-on-surface" id="topbar-title">Scrape &amp; Analisis</div>
+        <div class="text-[11px] text-on-surface-variant" id="topbar-desc">Kumpulkan data dari 6 platform lalu analisis sentimennya</div>
+      </div>
+    </div>
+    <div class="flex items-center gap-4">
+      <div class="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-surface-container-low border border-gold/40">
+        <div class="w-2 h-2 rounded-full bg-tertiary-container" id="status-dot"></div>
+        <span class="text-[12px] font-mono font-medium text-on-surface" id="status-text">Siap</span>
+      </div>
+    </div>
+  </header>
+
+  <!-- Page content -->
+  <main class="pt-20 px-6 pb-8 flex-1 bg-background" id="page-content">
+    <!-- injected by JS router -->
+  </main>
+
+</div>
+
+<!-- Toast container -->
+<div id="toast-container" class="fixed bottom-6 right-6 flex flex-col gap-2 z-[9999]"></div>
+
+<script src="/static/js/app.js"></script>
+<script src="/static/js/scrape.js"></script>
+<script src="/static/js/dashboard.js"></script>
+<script src="/static/js/historical.js"></script>
+<script src="/static/js/ai.js"></script>
+</body>
+</html>

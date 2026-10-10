@@ -9,6 +9,7 @@ import argparse
 import csv
 import math
 import os
+import re
 import sys
 import time
 from datetime import datetime, timezone
@@ -152,11 +153,10 @@ def _scrape_ig_instagrapi(keyword, max_comments=100, log=print):
 
 
 # ----------------------------------------------------------------- YouTube
-def scrape_yt(keyword, max_comments=100, log=print):
+def _yt_search_entries(keyword, want, log):
+    """Cari video YT dengan retry: direct → WARP proxy → yt-dlp flat ulang.
+    Return list entri video (channel results dibuang)."""
     import yt_dlp
-    from youtube_comment_downloader import (SORT_BY_POPULAR, SORT_BY_RECENT,
-                                            YoutubeCommentDownloader)
-    _yt_sort = SORT_BY_RECENT  # newest first for trend tracking
 
     def search(query, proxy=None):
         opts = {"quiet": True, "extract_flat": True, "skip_download": True,
@@ -164,28 +164,26 @@ def scrape_yt(keyword, max_comments=100, log=print):
         if proxy:
             opts["proxy"] = proxy
         with yt_dlp.YoutubeDL(opts) as ydl:
-            info = ydl.extract_info(f"ytsearch8:{query}", download=False)
+            info = ydl.extract_info(f"ytsearch{max(8, want)}:{query}", download=False)
         return info.get("entries") or []
 
     entries = []
-    try:
-        entries = search(keyword)
-        log(f"YT: search ok, {len(entries)} video")
-    except Exception as e:
-        log(f"YT: search direct gagal ({str(e)[:80]}), coba via WARP ...")
-        entries = search(keyword, proxy=WARP_PROXY)
-        log(f"YT: search via WARP ok, {len(entries)} video")
-    if not entries:
-        return []
-
-    dl = YoutubeCommentDownloader()
-    rows = []
+    last_err = None
+    for attempt, proxy in enumerate([None, WARP_PROXY, None], 1):
+        try:
+            entries = search(keyword, proxy=proxy)
+            log(f"YT: search ok (percobaan {attempt}), {len(entries)} entri")
+            break
+        except Exception as e:
+            last_err = e
+            log(f"YT: search percobaan {attempt} gagal ({str(e)[:80]})")
+    if not entries and last_err:
+        log(f"YT: search gagal total: {type(last_err).__name__} {str(last_err)[:120]}")
     video_entries = []
     for ent in entries:
         ent_url = ent.get("url", "")
         ent_id = ent.get("id", "")
-        # Skip channel results: their URL contains '/channel/' and their ID
-        # starts with 'UC' (24 chars).  Only keep actual video entries.
+        # Skip channel results: URL '/channel/' atau id UC+24 chars
         if "/channel/" in ent_url:
             continue
         if ent_id and len(ent_id) == 24 and ent_id.startswith("UC"):
@@ -193,9 +191,54 @@ def scrape_yt(keyword, max_comments=100, log=print):
         if "watch?v=" not in ent_url and not ent_id:
             continue
         video_entries.append(ent)
+    return video_entries
 
-    log(f"YT: {len(video_entries)} video (filtered from {len(entries)} entries)")
-    for ent in video_entries:
+
+def _yt_comments_via_downloader(url, sisa, collect):
+    """Engine 1: youtube-comment-downloader. Return jumlah komentar terkumpul."""
+    from youtube_comment_downloader import YoutubeCommentDownloader, SORT_BY_RECENT
+    dl = YoutubeCommentDownloader()
+    got = 0
+    for c in dl.get_comments_from_url(url, sort_by=SORT_BY_RECENT):
+        if got >= sisa:
+            break
+        t = (c.get("text") or "").replace("\n", " ").strip()
+        if not t:
+            continue
+        tp = c.get("time_parsed")
+        if isinstance(tp, (int, float)) and tp:
+            date = datetime.fromtimestamp(tp, tz=timezone.utc).isoformat()
+        elif hasattr(tp, "isoformat"):
+            date = tp.isoformat()
+        else:
+            date = ""
+        collect({
+            "source": "youtube",
+            "text": t,
+            "author": c.get("author", "") or "",
+            "date": date,
+            "likes": c.get("votes", 0) or 0,
+            "url": url,
+        })
+        got += 1
+    return got
+
+
+def scrape_yt(keyword, max_comments=100, log=print):
+    """Komentar YT per keyword. Robust: search retry + 2 engine komentar
+    (youtube-comment-downloader → yt-dlp) + chase target dengan video tambahan."""
+    rows = []
+
+    def collect(r):
+        rows.append(r)
+
+    entries = _yt_search_entries(keyword, max_comments, log)
+    if not entries:
+        log("YT: tidak ada video ditemukan")
+        return []
+
+    log(f"YT: {len(entries)} video (filtered dari hasil search)")
+    for ent in entries:
         if len(rows) >= max_comments:
             break
         vid = ent.get("id")
@@ -205,34 +248,59 @@ def scrape_yt(keyword, max_comments=100, log=print):
         sisa = max_comments - len(rows)
         got = 0
         try:
-            for c in dl.get_comments_from_url(url, sort_by=_yt_sort):
-                t = (c.get("text") or "").replace("\n", " ").strip()
-                if not t:
-                    continue
-                tp = c.get("time_parsed")
-                if isinstance(tp, (int, float)) and tp:
-                    date = datetime.fromtimestamp(tp, tz=timezone.utc).isoformat()
-                elif hasattr(tp, "isoformat"):
-                    date = tp.isoformat()
-                else:
-                    date = ""
-                rows.append({
-                    "source": "youtube",
-                    "text": t,
-                    "author": c.get("author", "") or "",
-                    "date": date,
-                    "likes": c.get("votes", 0) or 0,
-                    "url": url,
-                })
-                got += 1
-                if got >= sisa:
-                    break
+            got = _yt_comments_via_downloader(url, sisa, collect)
         except Exception as e:
-            log(f"YT: komentar {vid} gagal: {type(e).__name__} {str(e)[:80]}")
-            continue
+            log(f"YT: downloader gagal {vid} ({type(e).__name__} {str(e)[:60]}), coba yt-dlp ...")
+        # Engine 2: yt-dlp comments jika engine 1 tidak menghasilkan apa pun
+        if got == 0:
+            got = _yt_comments_via_ytdlp(url, sisa, collect, log)
         judul = (ent.get("title") or "")[:50]
-        log(f"YT: {judul}: +{got} (total {len(rows)})")
+        if got:
+            log(f"YT: {judul}: +{got} (total {len(rows)})")
+        else:
+            log(f"YT: {judul}: 0 komentar (dinonaktifkan atau diblokir)")
+    if rows and len(rows) < max_comments:
+        log(f"YT: target {max_comments}, didapat {len(rows)} (stok komentar video habis)")
     return rows
+
+
+def _yt_comments_via_ytdlp(url, sisa, collect, log=print):
+    """Engine 2: ambil komentar via yt-dlp (fallback downloader).
+    Return jumlah komentar terkumpul."""
+    try:
+        import yt_dlp
+
+        opts = {"quiet": True, "skip_download": True, "extractor_retries": 1,
+                "socket_timeout": 20}
+        with yt_dlp.YoutubeDL(opts) as ydl:
+            info = ydl.extract_info(url, download=False)
+        got = 0
+        for c in (info.get("comments") or []):
+            if got >= sisa:
+                break
+            t = (c.get("text") or "").replace("\n", " ").strip()
+            if len(t) < 2:
+                continue
+            date = ""
+            ts = c.get("timestamp")
+            if ts:
+                try:
+                    date = datetime.fromtimestamp(ts, tz=timezone.utc).isoformat()
+                except Exception:
+                    date = ""
+            collect({
+                "source": "youtube",
+                "text": t,
+                "author": c.get("author", "") or "",
+                "date": date,
+                "likes": c.get("like_count", 0) or 0,
+                "url": url,
+            })
+            got += 1
+        return got
+    except Exception as e:
+        log(f"YT: yt-dlp fallback gagal ({type(e).__name__} {str(e)[:80]})")
+        return 0
 
 
 # -------------------------------------------------------------- Web berita
@@ -354,3 +422,324 @@ def main() -> int:
 
 if __name__ == "__main__":
     sys.exit(main())
+
+
+# ---------------------------------------------------------------- Scrape per URL
+def scrape_url_ig(url, max_comments=100, log=print):
+    """Scrape comments from a single Instagram post URL."""
+    from ig_web_scraper import _load_session_id, _make_session, _get_comments
+    import re as _re
+
+    sid, username = _load_session_id()
+    if not sid:
+        raise RuntimeError("IG butuh login: paste session_id di form Kredensial")
+
+    session = _make_session(sid, username)
+
+    # Extract shortcode from URL (/p/ or /reel/)
+    match = _re.search(r"/(?:p|reel)/([A-Za-z0-9_-]+)", url)
+    if not match:
+        raise RuntimeError(f"URL tidak valid: {url}")
+    shortcode = match.group(1)
+
+    # Get media_id from shortcode using web API
+    try:
+        r = session.get(
+            f"https://www.instagram.com/api/v1/media/shortcode/{shortcode}/",
+            timeout=15)
+        if r.status_code != 200:
+            raise RuntimeError(f"IG: tidak bisa ambil media_id (HTTP {r.status_code})")
+        data = r.json()
+        item = data.get("items", [{}])[0] if isinstance(data.get("items"), list) else {}
+        post_id = item.get("pk") or data.get("pk") or ""
+    except RuntimeError:
+        raise
+    except Exception as e:
+        raise RuntimeError(f"IG: gagal ambil info post: {e}")
+
+    # Correct post URL (from shortcode, not post_id)
+    rows = []
+    if not post_id:
+        raise RuntimeError("IG: media_id tidak ditemukan")
+
+    comments = _get_comments(session, str(post_id), shortcode=shortcode,
+                             max_comments=max_comments, log=log)
+    for c in comments:
+        c["url"] = f"https://www.instagram.com/p/{shortcode}/"
+    return comments
+
+
+def scrape_url_yt(url, max_comments=100, log=print):
+    """Scrape comments from a single YouTube video URL."""
+    from youtube_comment_downloader import YoutubeCommentDownloader, SORT_BY_RECENT
+    from datetime import datetime, timezone
+
+    dl = YoutubeCommentDownloader()
+    rows = []
+    try:
+        for c in dl.get_comments_from_url(url, sort_by=SORT_BY_RECENT):
+            t = (c.get("text") or "").replace("\n", " ").strip()
+            if not t:
+                continue
+            tp = c.get("time_parsed")
+            if isinstance(tp, (int, float)) and tp:
+                date = datetime.fromtimestamp(tp, tz=timezone.utc).isoformat()
+            elif hasattr(tp, "isoformat"):
+                date = tp.isoformat()
+            else:
+                date = ""
+            rows.append({
+                "source": "youtube",
+                "text": t,
+                "author": c.get("author", "") or "",
+                "date": date,
+                "likes": c.get("votes", 0) or 0,
+                "url": url,
+            })
+            log(f"YT URL: {len(rows)} komentar")
+            if len(rows) >= max_comments:
+                break
+    except Exception as e:
+        raise RuntimeError(f"YT: gagal scrape URL: {e}")
+    return rows
+
+
+def scrape_url_facebook(url, max_comments=100, log=print):
+    """Scrape a single Facebook post URL via Playwright."""
+    from scrapers_extra import _load_session, _parse_cookie_str
+    from playwright.sync_api import sync_playwright, TimeoutError as PWTimeout
+
+    session = _load_session("facebook")
+    if not session:
+        raise RuntimeError("Facebook belum dikonfigurasi.")
+    cookie_str = session.get("cookie", "")
+    if not cookie_str:
+        raise RuntimeError("Cookie Facebook kosong.")
+
+    cookies = _parse_cookie_str(cookie_str)
+    if "c_user" not in cookies or "xs" not in cookies:
+        raise RuntimeError("Cookie tidak lengkap (butuh c_user + xs).")
+
+    rows = []
+    with sync_playwright() as p:
+        browser = p.chromium.launch(headless=True)
+        context = browser.new_context(
+            user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
+                       "(KHTML, like Gecko) Chrome/124.0 Safari/537.36",
+            viewport={"width": 1280, "height": 1024},
+        )
+        pw_cookies = [
+            {"name": k, "value": v, "domain": ".facebook.com", "path": "/"}
+            for k, v in cookies.items()
+        ]
+        context.add_cookies(pw_cookies)
+        page = context.new_page()
+        try:
+            page.goto(url, timeout=30000, wait_until="domcontentloaded")
+        except PWTimeout:
+            browser.close()
+            raise RuntimeError("Facebook: timeout loading page")
+
+        page.wait_for_timeout(5000)
+        # Expand comments
+        for _ in range(5):
+            btns = page.query_selector_all('[role="button"]:has-text("View more comments")')
+            if not btns:
+                break
+            for b in btns[:3]:
+                try:
+                    b.click(timeout=3000)
+                    page.wait_for_timeout(1200)
+                except Exception:
+                    pass
+
+        # Extract comments
+        comment_els = page.query_selector_all('[aria-label="Comment"]')
+        for el in comment_els:
+            if len(rows) >= max_comments:
+                break
+            try:
+                text = el.inner_text().strip().replace("\n", " ")
+                if len(text) < 5:
+                    continue
+                rows.append({
+                    "source": "facebook",
+                    "text": text[:3000],
+                    "author": "",
+                    "date": "",
+                    "likes": 0,
+                    "url": url,
+                })
+            except Exception:
+                continue
+        browser.close()
+    log(f"Facebook URL: {len(rows)} komentar")
+    return rows
+
+
+def scrape_url_tiktok(url, max_comments=100, log=print):
+    """Scrape comments from a single TikTok video URL."""
+    from scrapers_extra import _load_session
+    from datetime import datetime, timezone
+    import asyncio
+
+    session = _load_session("tiktok")
+    if not session:
+        raise RuntimeError("TikTok belum dikonfigurasi.")
+    ms_token = session.get("ms_token", "")
+    if not ms_token:
+        raise RuntimeError("ms_token TikTok kosong.")
+
+    # Extract video ID from URL (support /video/<id> and short links vto.toktok etc.)
+    import re as _re
+    match = _re.search(r"/video/(\d+)", url)
+    if not match:
+        # vt.tiktok.com short URL → resolve via TikTokApi oEmbed or redirect
+        try:
+            import requests as _rq
+            r = _rq.head(url, allow_redirects=True, timeout=15,
+                         headers={"User-Agent": UA})
+            url = r.url
+            match = _re.search(r"/video/(\d+)", url)
+        except Exception:
+            pass
+    if not match:
+        raise RuntimeError(f"URL TikTok tidak valid: {url}")
+    video_id = match.group(1)
+
+    rows = []
+    try:
+        from TikTokApi import TikTokApi
+
+        async def _run():
+            async with TikTokApi() as api:
+                await api.create(ms_token=ms_token, num_retries=2)
+                video = api.video(id=video_id)
+                async for c in video.comments(count=max_comments):
+                    ct = (c.text or "").strip().replace("\n", " ")
+                    if len(ct) < 3:
+                        continue
+                    rows.append({
+                        "source": "tiktok",
+                        "text": ct[:3000],
+                        "author": c.user.nickname or "",
+                        "date": "",
+                        "likes": c.likes_count or 0,
+                        "url": url,
+                    })
+                    log(f"TikTok URL: {len(rows)} komentar")
+                    if len(rows) >= max_comments:
+                        break
+
+        asyncio.run(_run())
+    except Exception as e:
+        raise RuntimeError(f"TikTok: gagal scrape URL: {e}")
+    return rows
+
+
+def scrape_url_web(url, max_comments=1, log=print):
+    """Fetch and extract text from a single web/news article URL.
+    `max_comments` tidak relevan untuk artikel — 1 URL = 1 baris artikel.
+    Extract juga tanggal publish + nama media bila tersedia."""
+    import trafilatura
+    from datetime import datetime, timezone
+    from email.utils import parsedate_to_datetime
+
+    try:
+        r = _http_get(url, allow_redirects=True)
+        html = r.text
+        final_url = r.url
+    except Exception as e:
+        raise RuntimeError(f"Web: gagal fetch URL: {e}")
+
+    text = trafilatura.extract(html, url=final_url, include_comments=False) or ""
+    text = " ".join(text.split())
+    if len(text) < 100:
+        raise RuntimeError("Web: konten terlalu pendek atau tidak bisa diekstrak.")
+
+    # --- metadata extraction (best effort) ---
+    date = ""
+    try:
+        meta = trafilatura.baseline(html) or {}
+        raw_date = meta.get("date") or ""
+        if raw_date:
+            date = str(raw_date)[:10]
+    except Exception:
+        pass
+    if not date:
+        # <meta property="article:published_time" content="...">
+        m = re.search(r'property=["\']article:published_time["\']\s+content=["\']([^"\']+)', html)
+        if not m:
+            m = re.search(r'name=["\'](?:pubdate|publishdate|date)["\']\s+content=["\']([^"\']+)', html)
+        if m:
+            date = m.group(1)[:10]
+
+    author = ""
+    try:
+        m = re.search(r'property=["\']og:site_name["\']\s+content=["\']([^"\']+)', html)
+        if m:
+            author = m.group(1).strip()
+    except Exception:
+        pass
+    if not author:
+        try:
+            from urllib.parse import urlparse
+            author = urlparse(final_url).netloc.replace("www.", "")
+        except Exception:
+            author = ""
+
+    log(f"Web URL: {len(text)} karakter diambil (media: {author or '?'}, tanggal: {date or '?'})")
+    return [{
+        "source": "web",
+        "text": text[:6000],
+        "author": author,
+        "date": date,
+        "likes": 0,
+        "url": final_url,
+    }]
+
+
+def scrape_url_playstore(url, max_comments=100, log=print):
+    """Scrape reviews dari satu app Play Store.
+    URL: https://play.google.com/store/apps/details?id=<package>"""
+    import re as _re
+    from google_play_scraper import reviews, Sort
+
+    m = _re.search(r"[?&]id=([a-zA-Z0-9._]+)", url)
+    if not m:
+        raise RuntimeError(f"URL Play Store tidak valid (butuh ?id=<package>): {url}")
+    pkg = m.group(1)
+
+    rows = []
+    try:
+        result, _ = reviews(
+            pkg, lang="id", country="id",
+            sort=Sort.NEWEST, count=max_comments,
+        )
+        for r in result:
+            text = (r.get("content") or "").strip().replace("\n", " ")
+            if len(text) < 3:
+                continue
+            rows.append({
+                "source": "playstore",
+                "text": text[:3000],
+                "author": r.get("userName", ""),
+                "date": r.get("at").isoformat() if r.get("at") else "",
+                "likes": r.get("thumbsUpCount", 0) or 0,
+                "url": f"https://play.google.com/store/apps/details?id={pkg}",
+                "rating": r.get("score", ""),
+            })
+        log(f"Play Store URL: {pkg}: +{len(rows)} reviews")
+    except Exception as e:
+        raise RuntimeError(f"Play Store: gagal scrape {pkg}: {type(e).__name__} {str(e)[:120]}")
+    return rows
+
+
+URL_SCRAPERS = {
+    "instagram": scrape_url_ig,
+    "youtube": scrape_url_yt,
+    "facebook": scrape_url_facebook,
+    "tiktok": scrape_url_tiktok,
+    "web": scrape_url_web,
+    "playstore": scrape_url_playstore,
+}

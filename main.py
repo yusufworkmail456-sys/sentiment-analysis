@@ -1,0 +1,80 @@
+#!/usr/bin/env python3
+"""Taspen Sentiment Platform – FastAPI entrypoint.
+
+Jalankan:
+  ./venv/bin/uvicorn main:app --host 127.0.0.1 --port 9120
+
+Riwayat scrape disimpan di hasil/history/*.json (retensi 6 jam, dibersihkan otomatis).
+"""
+import sys
+from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).parent))
+
+import config  # noqa: E402  (loads .env)
+from fastapi import FastAPI
+from fastapi.staticfiles import StaticFiles
+from fastapi.responses import FileResponse
+
+import traceback
+from fastapi import Request
+from fastapi.responses import JSONResponse
+
+app = FastAPI(title="Taspen Sentiment Platform", version="2.1.0")
+
+
+@app.exception_handler(Exception)
+async def global_exception_handler(request: Request, exc: Exception):
+    tb = traceback.format_exc()
+    return JSONResponse(
+        status_code=500,
+        content={"ok": False, "error": str(exc), "traceback": tb},
+    )
+
+# ── API routers ───────────────────────────────────────────────────────────
+from api.scrape    import router as scrape_router    # noqa: E402
+from api.sentiment import router as sentiment_router  # noqa: E402
+from api.ai        import router as ai_router         # noqa: E402
+from api.export    import router as export_router     # noqa: E402
+from api.sessions  import router as sessions_router   # noqa: E402
+from api.history   import router as history_router    # noqa: E402
+from api.modelinfo import router as modelinfo_router  # noqa: E402
+from api.analytics  import router as analytics_router  # noqa: E402
+
+app.include_router(scrape_router,    prefix="/api")
+app.include_router(sentiment_router, prefix="/api")
+app.include_router(ai_router,        prefix="/api")
+app.include_router(export_router,    prefix="/api")
+app.include_router(sessions_router,  prefix="/api")
+app.include_router(history_router,   prefix="/api")
+app.include_router(modelinfo_router, prefix="/api")
+app.include_router(analytics_router, prefix="/api")
+
+
+@app.on_event("startup")
+async def _startup():
+    """Mulai scheduler scrape terjadwal (keyword 'taspen' default, tiap 6 jam)."""
+    try:
+        from scheduler import start_scheduler
+        start_scheduler(app)
+    except Exception as e:
+        print(f"[startup] scheduler gagal dimulai: {type(e).__name__} {e}")
+
+
+@app.get("/api/app/info", include_in_schema=False)
+async def app_info():
+    """Versi aplikasi untuk sidebar."""
+    return {"ok": True, "version": config.APP_VERSION, "title": "Taspen Sentiment Platform"}
+
+# ── Static files ──────────────────────────────────────────────────────────
+app.mount("/static", StaticFiles(directory="static"), name="static")
+app.mount("/assets", StaticFiles(directory="assets"), name="assets")
+
+@app.get("/", include_in_schema=False)
+async def root():
+    return FileResponse("static/index.html")
+
+# Catch-all for SPA routing
+@app.get("/{full_path:path}", include_in_schema=False)
+async def spa_fallback(full_path: str):
+    return FileResponse("static/index.html")
