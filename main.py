@@ -39,6 +39,7 @@ from api.export    import router as export_router     # noqa: E402
 from api.sessions  import router as sessions_router   # noqa: E402
 from api.history   import router as history_router    # noqa: E402
 from api.modelinfo import router as modelinfo_router  # noqa: E402
+from api.analytics  import router as analytics_router  # noqa: E402
 
 app.include_router(scrape_router,    prefix="/api")
 app.include_router(sentiment_router, prefix="/api")
@@ -47,6 +48,17 @@ app.include_router(export_router,    prefix="/api")
 app.include_router(sessions_router,  prefix="/api")
 app.include_router(history_router,   prefix="/api")
 app.include_router(modelinfo_router, prefix="/api")
+app.include_router(analytics_router, prefix="/api")
+
+
+@app.on_event("startup")
+async def _startup():
+    """Mulai scheduler scrape terjadwal (keyword 'taspen' default, tiap 6 jam)."""
+    try:
+        from scheduler import start_scheduler
+        start_scheduler(app)
+    except Exception as e:
+        print(f"[startup] scheduler gagal dimulai: {type(e).__name__} {e}")
 
 
 @app.get("/api/app/info", include_in_schema=False)

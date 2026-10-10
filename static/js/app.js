@@ -82,6 +82,7 @@ const PAGES = {
   scrape:    { title: 'Scrape & Analisis',         desc: 'Kumpulkan data dari 6 platform lalu analisis sentimennya',            render: () => window.renderScrape?.() },
   dashboard: { title: 'Visualization Overview',    desc: 'Parameter bersama dari semua sumber dalam satu tampilan',             render: () => window.renderDashboard?.() },
   sources:   { title: 'Per-Source Breakdown',      desc: 'Visualisasi adaptif per sumber — menyesuaikan data yang tertangkap',  render: () => window.renderSourcesPage?.() },
+  historical:{ title: 'Historical Analytics',      desc: 'Tren antar run scrape dari database — dedup global, data unik saja',  render: () => window.renderHistorical?.() },
   ai:        { title: 'AI Insight',                desc: 'Ringkasan eksekutif, rekomendasi, dan chatbot analisis',              render: () => window.renderAI?.() },
 };
 

@@ -33,3 +33,6 @@ fpdf2==2.7.9
 
 # Config / env
 python-dotenv==1.0.1
+
+# Scheduler (historical auto-scrape)
+apscheduler==3.10.4

@@ -126,6 +126,18 @@ def _run_scrape_keyword(req: ScrapeKeywordRequest):
 
     records = _df_to_records(df)
 
+    # Simpan ke database historis (dedup global) — keyword mode saja
+    db_note = ""
+    try:
+        from db_store import save_run
+        stats = save_run("keyword", req.keyword.strip(), targets, records, {
+            "durasi": round(time.time() - t0),
+        }, logs)
+        db_note = stats
+        log(f"DB: run#{stats['run_id']} tersimpan — {stats['new']} baru, {stats['dup']} duplikat, GSS {stats['gss']}")
+    except Exception as e:
+        log(f"DB: gagal simpan run: {type(e).__name__} {str(e)[:150]}")
+
     # Simpan riwayat lengkap (retensi 6 jam)
     try:
         from api.history import save_history
@@ -144,6 +156,7 @@ def _run_scrape_keyword(req: ScrapeKeywordRequest):
     return {
         "ok": True,
         "rows": records,
+        "db": db_note if isinstance(db_note, dict) else None,
         "meta": {
             "keyword": req.keyword.strip(),
             "stamp": stamp,

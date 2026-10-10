@@ -37,6 +37,11 @@ APP_SUBTITLE = os.environ.get("APP_SUBTITLE",
     "Multi-platform · IndoBERT · AI insight")
 APP_VERSION = os.environ.get("APP_VERSION", "2.1.0")
 
+# === Scheduled scraping (historical data) ===
+SCHEDULE_ENABLED = os.environ.get("SCHEDULE_ENABLED", "1")
+SCHEDULE_KEYWORDS = os.environ.get("SCHEDULE_KEYWORDS", "taspen")
+SCHEDULE_INTERVAL_HOURS = os.environ.get("SCHEDULE_INTERVAL_HOURS", "6")
+
 # === Play Store apps to scrape (configurable) ===
 # Format: {env var name: display fallback}
 # Set PLAYSTORE_APP_1..N in .env with your app package IDs
