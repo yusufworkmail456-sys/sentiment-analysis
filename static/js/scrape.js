@@ -145,7 +145,7 @@ window.renderScrape = function () {
             <span class="toggle-label">Tag entity mentions</span>
           </label>
         </div>
-        <p class="text-[11px] text-on-surface-variant mb-4">Target jumlah = batas atas. Hasil bisa lebih sedikit (duplikat dibuang, komentar pendek difilter, stok komentar platform habis) — capaian per sumber selalu dilaporkan di log &amp; KPI.</p>
+        <p class="text-[11px] text-on-surface-variant mb-4">Target jumlah dikejar per sumber: kalau kurang (duplikat dibuang / stok komentar platform habis), scraper otomatis diulang dengan over-fetch sampai target tercapai atau stok benar-benar habis. Capaian per sumber dilaporkan di log &amp; KPI.</p>
 
         <button class="btn btn-primary btn-full" id="btn-run-kw" onclick="runScrapeKeyword()">
           <span class="material-symbols-outlined text-[18px]">radar</span> Mulai Scrape + Analisis

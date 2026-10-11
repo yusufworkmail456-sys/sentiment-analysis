@@ -62,7 +62,7 @@ def _df_to_records(df) -> list:
 def _run_scrape_keyword(req: ScrapeKeywordRequest):
     """Blocking function — runs in thread pool."""
     import pandas as pd
-    from multiscrape import dedupe, scrape_ig, scrape_yt, scrape_web
+    from multiscrape import dedupe, fetch_until_target, scrape_ig, scrape_yt, scrape_web
     from scrapers_extra import scrape_facebook, scrape_tiktok, scrape_playstore
     from core import run_sentiment, OUT_DIR
     from datetime import datetime, timezone
@@ -80,7 +80,7 @@ def _run_scrape_keyword(req: ScrapeKeywordRequest):
         targets[name] = n
         log(f"> {name}: mulai (target {n})...")
         try:
-            got = fn(req.keyword.strip(), n, log)
+            got = fetch_until_target(name, fn, req.keyword.strip(), n, log)
             rows.extend(got)
             log(f"OK {name}: {len(got)}/{n} baris")
         except Exception as e:
@@ -106,7 +106,7 @@ def _run_scrape_keyword(req: ScrapeKeywordRequest):
     for name, tgt in targets.items():
         key = {"YouTube": "youtube", "Instagram": "instagram", "Web": "web",
                "Play Store": "playstore", "Facebook": "facebook", "TikTok": "tiktok"}.get(name, name.lower())
-        log(f"CAPAIAN {name}: {per_src.get(key, 0)}/{tgt} (target = batas atas; dedupe/filter mengurangi)")
+        log(f"CAPAIAN {name}: {per_src.get(key, 0)}/{tgt} (target dikejar via retry over-fetch; stok platform jadi batas akhir)")
 
     if not rows:
         return {"ok": False, "error": "Tidak ada data terkumpul. Cek kredensial atau keyword.", "logs": logs}

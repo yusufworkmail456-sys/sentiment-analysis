@@ -18,7 +18,7 @@ import pandas as pd
 sys.path.insert(0, str(Path(__file__).parent))
 
 from config import OUT_DIR, MODEL_NAME
-from multiscrape import dedupe, scrape_ig, scrape_web, scrape_yt
+from multiscrape import dedupe, fetch_until_target, scrape_ig, scrape_web, scrape_yt
 from scrapers_extra import scrape_playstore
 from categorize import classify_df
 from transformers import pipeline as hf_pipeline
@@ -71,9 +71,9 @@ def main():
             return
         log(f"▶ {nama}: mulai (target {n})...")
         try:
-            got = fn(args.keyword.strip(), n, log)
+            got = fetch_until_target(nama, fn, args.keyword.strip(), n, log)
             rows.extend(got)
-            log(f"✓ {nama}: {len(got)} baris")
+            log(f"✓ {nama}: {len(got)}/{n} baris")
         except Exception as e:
             log(f"✗ {nama}: {type(e).__name__} {str(e)[:120]}")
 

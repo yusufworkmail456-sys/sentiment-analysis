@@ -377,6 +377,64 @@ def dedupe(rows):
     return out
 
 
+# ------------------------------------------------------------------ fetch_until_target
+# Round-robin over-fetch + dedupe antar-round: scraper dipanggil berulang
+# dgn permintaan makin besar, hasil digabung lalu didedupe per-sumber, sampai
+# jumlah unik per sumber >= target ATAU stok platform beneran habis
+# (tidak ada baris unik baru di round terakhir).
+MAX_ROUNDS = 4          # max percobaan per sumber
+OVERFETCH_FACTOR = 1.6  # buffer permintaan per round (menutup duplikat + filter)
+
+
+def fetch_until_target(source_name, scraper_fn, keyword, target, log=print):
+    """Kembalikan list baris unik dengan panjang mendekati `target`.
+
+    Round 1: panggil scraper dgn `target` (perilaku lama).
+    Round 2+: kalau kurang, panggil ulang dgn over-fetch (target*factor) —
+    platform biasanya mengembalikan halaman/populasi komentar yang sama,
+    tapi kombinasi engine + sort + offset sering menghasilkan tambahan.
+    Berhenti saat target tercapai, MAX_ROUNDS habis, atau round tanpa
+    baris unik baru (stok habis — jangan buang waktu & jangan kena rate-limit).
+    """
+    if target <= 0:
+        return []
+    src_key = source_name.strip().lower()
+    pooled: list = []
+    seen: set = set()
+
+    def key_of(r):
+        return (str(r.get("source", src_key)).lower(), str(r.get("text", "")).lower()[:200])
+
+    def pool_unique(new_rows):
+        added = 0
+        for r in new_rows or []:
+            k = key_of(r)
+            if k in seen:
+                continue
+            seen.add(k)
+            pooled.append(r)
+            added += 1
+        return added
+
+    ask = max(target, 1)
+    for rnd in range(1, MAX_ROUNDS + 1):
+        try:
+            got = scraper_fn(keyword, ask, log)
+        except Exception as e:
+            log(f"{source_name}: round {rnd} gagal: {type(e).__name__} {str(e)[:120]}")
+            got = []
+        added = pool_unique(got)
+        log(f"{source_name}: round {rnd} +{added} unik (total {len(pooled)}/{target})")
+        if len(pooled) >= target:
+            break
+        if added == 0:
+            log(f"{source_name}: stok habis — {len(pooled)}/{target} unik terkumpul")
+            break
+        ask = math.ceil(len(pooled) * OVERFETCH_FACTOR) + 4
+
+    return pooled[:target]
+
+
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--keyword", required=True)

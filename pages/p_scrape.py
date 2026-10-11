@@ -389,6 +389,7 @@ def _execute_scrape(keyword: str, src_vals: dict,
                     do_bot: bool, do_ent: bool):
     """Run keyword-based multi-source scrape."""
     import core as _core
+    from multiscrape import fetch_until_target
 
     logs, rows = [], []
     t0 = time.time()
@@ -403,9 +404,9 @@ def _execute_scrape(keyword: str, src_vals: dict,
                 return
             log(f"> {nama}: mulai (target {n})...")
             try:
-                got = fn(keyword.strip(), n, log)
+                got = fetch_until_target(nama, fn, keyword.strip(), n, log)
                 rows.extend(got)
-                log(f"OK {nama}: {len(got)} baris")
+                log(f"OK {nama}: {len(got)}/{n} baris")
             except Exception as e:
                 log(f"FAIL {nama}: {type(e).__name__} {str(e)[:120]}")
 
