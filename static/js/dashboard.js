@@ -27,11 +27,11 @@ window.renderDashboard = function () {
       <span class="chip chip-ok"><span class="material-symbols-outlined text-[13px]">verified</span> ${fmt(st.total)} data</span>
     </div>
     <h1 class="text-[22px] font-extrabold text-on-surface tracking-tight">Visualization Overview</h1>
-    <p class="text-[13px] text-on-surface-variant mt-1">Parameter yang sama dari semua sumber digabung dalam tampilan ini — breakdown per sumber ada di menu Per-Source Breakdown</p>
+    <p class="text-[13px] text-on-surface-variant mt-1">Parameter yang sama dari semua sumber digabung dalam tampilan ini — rincian per sumber ada di menu Per-Source Breakdown</p>
   </div>
   <div class="flex gap-2">
     <button class="btn btn-secondary" onclick="navTo('sources')">
-      <span class="material-symbols-outlined text-[18px]">folder_data</span> Per-Source Breakdown
+      <span class="material-symbols-outlined text-[18px]">folder_data</span> Rincian per Sumber
     </button>
     <button class="btn btn-primary" onclick="exportPDF()">
       <span class="material-symbols-outlined text-[18px]">picture_as_pdf</span> Export PDF
@@ -59,8 +59,8 @@ window.renderDashboard = function () {
 <!-- Sub-tabs -->
 <div id="dash-tabs">
   <div class="tabs-bar">
-    <button class="tab-btn active" data-tab="overview">Overview Gabungan</button>
-    <button class="tab-btn" data-tab="per-source">Per-Source Ringkas</button>
+    <button class="tab-btn active" data-tab="overview">Ringkasan Gabungan</button>
+    <button class="tab-btn" data-tab="per-source">Ringkasan per Sumber</button>
   </div>
 
   <!-- Overview tab -->
@@ -206,17 +206,17 @@ function renderOverview() {
 ${alertsHtml}
 <!-- KPI -->
 <div class="grid grid-cols-2 xl:grid-cols-4 gap-3 mb-5">
-  ${kpiCard('Total Dianalisis',    fmt(st.total),               `${[...new Set(rows.map(r=>r.source))].length} sumber`,    'analytics',              '#005d97')}
+  ${kpiCard('Total Teks Dianalisis',    fmt(st.total),               `${[...new Set(rows.map(r=>r.source))].length} sumber`,    'analytics',              '#005d97')}
   ${kpiCard('Net Sentiment Score', `${st.skor>=0?'+':''}${st.skor.toFixed(1)}`, `GSS ${st.gss.toFixed(1)}/100`,  'sentiment_very_satisfied', st.skor>=0?'#1e9e6a':'#d64545')}
   ${kpiCard('Rasio Positif',       st.pct.Positif.toFixed(1)+'%',  `${fmt(st.cnt.Positif)} komentar`,      'thumb_up',                '#1e9e6a')}
-  ${kpiCard('Negatif Alert',       st.pct.Negatif.toFixed(1)+'%',  `${fmt(st.cnt.Negatif)} komentar`,      'notification_important',  '#d64545')}
+  ${kpiCard('Peringatan Negatif',       st.pct.Negatif.toFixed(1)+'%',  `${fmt(st.cnt.Negatif)} komentar`,      'notification_important',  '#d64545')}
 </div>
 
 <!-- Row 1: Donut + Insights -->
 <div class="grid grid-cols-1 lg:grid-cols-5 gap-4 mb-4">
   <div class="lg:col-span-2 section-card">
     <div class="section-title"><span class="material-symbols-outlined">pie_chart</span> Distribusi Sentimen</div>
-    <p class="section-desc">${fmt(st.total)} sample dianalisis</p>
+    <p class="section-desc">${fmt(st.total)} sampel dianalisis</p>
     <div id="chart-donut-dash" class="plotly-chart"></div>
     <div class="flex justify-center gap-5 mt-3">
       ${['Positif','Netral','Negatif'].map(k=>`
@@ -228,7 +228,7 @@ ${alertsHtml}
     </div>
   </div>
   <div class="lg:col-span-3 section-card">
-    <div class="section-title"><span class="material-symbols-outlined">speed</span> GSS Score &amp; Ringkasan</div>
+    <div class="section-title"><span class="material-symbols-outlined">speed</span> Skor GSS &amp; Ringkasan</div>
     <div id="chart-gauge" class="plotly-chart"></div>
     <div id="insight-bullets" class="mt-3"></div>
   </div>
@@ -241,14 +241,14 @@ ${alertsHtml}
     <div id="chart-per-source" class="plotly-chart"></div>
   </div>
   <div class="section-card">
-    <div class="section-title"><span class="material-symbols-outlined">category</span> ABSA per Kategori</div>
+    <div class="section-title"><span class="material-symbols-outlined">category</span> Analisis Aspek (ABSA) per Kategori</div>
     <div id="chart-absa" class="plotly-chart"></div>
   </div>
 </div>
 
 <!-- Row 3: Channel scorecard -->
 <div class="section-card mb-4">
-  <div class="section-title"><span class="material-symbols-outlined">leaderboard</span> Channel Scorecard</div>
+  <div class="section-title"><span class="material-symbols-outlined">leaderboard</span> Scorecard per Channel</div>
   <div style="overflow-x:auto;"><table class="data-table" id="scorecard-table">
     <thead><tr><th>#</th><th>Channel</th><th>Volume</th><th>Pos%</th><th>Neg%</th><th>GSS</th></tr></thead>
     <tbody id="scorecard-body"></tbody>
@@ -258,7 +258,7 @@ ${alertsHtml}
 <!-- Row 4: Time series + GSS trend (time-range filtered) -->
 <div class="grid grid-cols-1 xl:grid-cols-2 gap-4 mb-4">
   <div class="section-card" id="timeseries-card">
-    <div class="section-title"><span class="material-symbols-outlined">monitoring</span> Time Series Volume</div>
+    <div class="section-title"><span class="material-symbols-outlined">monitoring</span> Volume Time Series</div>
     <p class="section-desc">Volume komentar per hari (stacked) — mengikuti rentang waktu di atas</p>
     <div id="chart-timeseries" class="plotly-chart"></div>
   </div>
@@ -278,11 +278,11 @@ ${alertsHtml}
 <!-- Row 5: Top terms + Scatter -->
 <div class="grid grid-cols-1 lg:grid-cols-5 gap-4 mb-4">
   <div class="lg:col-span-2 section-card">
-    <div class="section-title"><span class="material-symbols-outlined">report</span> Top Terms Negatif</div>
+    <div class="section-title"><span class="material-symbols-outlined">report</span> Istilah Teratas Negatif</div>
     <div id="chart-terms" class="plotly-chart"></div>
   </div>
   <div class="lg:col-span-3 section-card">
-    <div class="section-title"><span class="material-symbols-outlined">trending_up</span> Viral Detection</div>
+    <div class="section-title"><span class="material-symbols-outlined">trending_up</span> Deteksi Viral</div>
     <div id="chart-scatter" class="plotly-chart"></div>
   </div>
 </div>
@@ -345,6 +345,10 @@ ${alertsHtml}
   renderHeatmap('chart-heatmap', rows);
   renderTimeSection();   // time series + GSS trend (respect time-range filter)
   dashFilterTable();
+  // Reflow semua chart setelah layout stabil (cegah chart terpotong/gepeng).
+  // setTimeout bukan rAF: rAF di tab headless/background bisa throttled.
+  setTimeout(() => resizePlots(), 150);
+  setTimeout(() => resizePlots(), 500);
 }
 
 // ── Gauge ──────────────────────────────────────────
@@ -650,10 +654,10 @@ function renderSourcePanel(src, rows, prefix = 'panel-src') {
   panel.innerHTML = `
 <!-- KPI row -->
 <div class="grid grid-cols-2 xl:grid-cols-4 gap-3 mb-4 mt-2">
-  ${kpiCard(SOURCE_LABEL[src]||src, fmt(st.total), 'total data', 'analytics', '#005d97')}
-  ${kpiCard('NSS', `${st.skor>=0?'+':''}${st.skor.toFixed(1)}`, `GSS ${st.gss.toFixed(1)}`, 'sentiment_very_satisfied', st.skor>=0?'#1e9e6a':'#d64545')}
-  ${kpiCard('Positif', st.pct.Positif.toFixed(1)+'%', fmt(st.cnt.Positif), 'thumb_up', '#1e9e6a')}
-  ${kpiCard('Negatif', st.pct.Negatif.toFixed(1)+'%', fmt(st.cnt.Negatif), 'notification_important', '#d64545')}
+  ${kpiCard(SOURCE_LABEL[src]||src, fmt(st.total), 'total teks', 'analytics', '#005d97')}
+  ${kpiCard('Net Sentiment Score', `${st.skor>=0?'+':''}${st.skor.toFixed(1)}`, `GSS ${st.gss.toFixed(1)}`, 'sentiment_very_satisfied', st.skor>=0?'#1e9e6a':'#d64545')}
+  ${kpiCard('Rasio Positif', st.pct.Positif.toFixed(1)+'%', fmt(st.cnt.Positif), 'thumb_up', '#1e9e6a')}
+  ${kpiCard('Peringatan Negatif', st.pct.Negatif.toFixed(1)+'%', fmt(st.cnt.Negatif), 'notification_important', '#d64545')}
 </div>
 
 <div class="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-4">
@@ -669,7 +673,7 @@ function renderSourcePanel(src, rows, prefix = 'panel-src') {
 
 <div class="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-4">
   <div class="section-card" id="${key}-terms-card">
-    <div class="section-title"><span class="material-symbols-outlined">manage_search</span> Top Terms Positif vs Negatif</div>
+    <div class="section-title"><span class="material-symbols-outlined">manage_search</span> Istilah Teratas Positif vs Negatif</div>
     <div class="grid grid-cols-2 gap-2">
       <div><div class="text-[11px] font-bold text-on-surface-variant mb-1">Positif</div><div id="${key}-terms-pos" class="plotly-chart"></div></div>
       <div><div class="text-[11px] font-bold text-on-surface-variant mb-1">Negatif</div><div id="${key}-terms-neg" class="plotly-chart"></div></div>

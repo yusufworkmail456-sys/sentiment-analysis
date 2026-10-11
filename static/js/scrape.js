@@ -13,7 +13,7 @@ window.renderScrape = function () {
       <span class="chip chip-gold"><span class="material-symbols-outlined text-[13px]">bolt</span> 6 Sumber Data</span>
       <span class="chip chip-ok"><span class="material-symbols-outlined text-[13px]">link</span> Scrape per URL</span>
     </div>
-    <h1 class="text-[22px] font-extrabold text-on-surface tracking-tight">Scrape &amp; Analisis</h1>
+    <h1 class="text-[22px] font-extrabold text-on-surface tracking-tight">Scrape &amp; Analysis</h1>
     <p class="text-[13px] text-on-surface-variant mt-1 max-w-2xl">
       Kumpulkan komentar dari Instagram, YouTube, Web, Play Store, Facebook, dan TikTok.
       Analisis sentimen otomatis dengan model ID-Sentiment.
@@ -25,7 +25,7 @@ window.renderScrape = function () {
 <div id="scrape-tabs" class="section-card mb-4">
   <div class="tabs-bar">
     <button class="tab-btn active" data-tab="keyword">Scrape per Keyword</button>
-    <button class="tab-btn" data-tab="url">Scrape per URL Postingan</button>
+    <button class="tab-btn" data-tab="url">Scrape per Post URL</button>
   </div>
 
   <!-- TAB: Keyword -->
@@ -138,7 +138,7 @@ window.renderScrape = function () {
         <div class="flex gap-6 mb-2">
           <label class="toggle-wrap">
             <label class="toggle"><input type="checkbox" id="do-bot" checked/><span class="toggle-slider"></span></label>
-            <span class="toggle-label">Deteksi bot/spam</span>
+            <span class="toggle-label">Deteksi bot / spam</span>
           </label>
           <label class="toggle-wrap">
             <label class="toggle"><input type="checkbox" id="do-ent" checked/><span class="toggle-slider"></span></label>
@@ -164,7 +164,7 @@ window.renderScrape = function () {
   <!-- TAB: URL -->
   <div class="tab-panel" data-panel="url">
     <div class="section-card mb-4">
-      <div class="section-title"><span class="material-symbols-outlined">link</span> Scrape per Postingan</div>
+      <div class="section-title"><span class="material-symbols-outlined">link</span> Scrape per Post URL</div>
       <p class="section-desc">Input URL postingan → pilih platform → tentukan jumlah komentar</p>
       <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-3">
         <div class="sm:col-span-1">
@@ -543,7 +543,7 @@ function renderResults() {
   ${kpiCard('Total Teks Dianalisis', fmt(st.total), `${[...new Set(rows.map(r=>r.source))].length} sumber · ${esc(meta.keyword||'')}`, 'analytics', '#005d97')}
   ${kpiCard('Net Sentiment Score', (st.skor>=0?'+':'') + st.skor.toFixed(1), `P ${st.cnt.Positif} · Neg ${st.cnt.Negatif} dari ${st.total}`, 'sentiment_very_satisfied', st.skor >= 0 ? '#1e9e6a' : '#d64545')}
   ${kpiCard('Rasio Positif', st.pct.Positif.toFixed(1)+'%', fmt(st.cnt.Positif)+' komentar', 'thumb_up', '#1e9e6a')}
-  ${kpiCard('Negatif Alert', st.pct.Negatif.toFixed(1)+'%', fmt(st.cnt.Negatif)+' komentar', 'notification_important', '#d64545')}
+  ${kpiCard('Peringatan Negatif', st.pct.Negatif.toFixed(1)+'%', fmt(st.cnt.Negatif)+' komentar', 'notification_important', '#d64545')}
 </div>
 ${capaians ? `<div class="flex flex-wrap items-center gap-2 mb-4"><span class="text-[11px] font-bold uppercase tracking-wider text-outline">Capaian:</span>${capaians}<span class="text-[11px] text-on-surface-variant ml-1">target = batas atas</span></div>` : ''}
 ${showTrust ? renderTrustSection(rows, botRows.length, botCount, entRows.length) : ''}
@@ -611,8 +611,15 @@ ${showTrust ? renderTrustSection(rows, botRows.length, botCount, entRows.length)
 </details>
 `;
 
-  // Render donut chart
+  // Render donut chart — purge dulu agar Plotly tidak memakai ukuran lama,
+  // lalu render sinkron + resize cadangan berbasis setTimeout (rAF di headless
+  // bisa throttled sehingga chart tak pernah tergambar / salah ukur).
+  const donutEl = document.getElementById('chart-donut-scrape');
+  if (donutEl && window.Plotly) { try { Plotly.purge(donutEl); } catch (_) {} }
+  donutEl.getBoundingClientRect();            // force reflow: lebar grid final
   renderDonut('chart-donut-scrape', st);
+  setTimeout(() => resizePlots(el), 150);
+  setTimeout(() => resizePlots(el), 500);
   filterTable();
 }
 
@@ -765,11 +772,12 @@ function renderDonut(id, st) {
     marker: { colors },
     hole: 0.55,
     textinfo: 'label+percent',
+    textposition: 'outside',
     sort: false,
     direction: 'clockwise',
   }], {
-    margin: { t:5, b:5, l:5, r:5 },
-    height: 220,
+    margin: { t: 30, b: 30, l: 10, r: 10 },
+    height: 240,
     showlegend: false,
     paper_bgcolor: 'rgba(0,0,0,0)',
   }, { displayModeBar: false });

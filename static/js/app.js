@@ -79,11 +79,11 @@ function updateSidebar() {
 
 // ── Router ─────────────────────────────────────────
 const PAGES = {
-  scrape:    { title: 'Scrape & Analisis',         desc: 'Kumpulkan data dari 6 platform lalu analisis sentimennya',            render: () => window.renderScrape?.() },
-  dashboard: { title: 'Visualization Overview',    desc: 'Parameter bersama dari semua sumber dalam satu tampilan',             render: () => window.renderDashboard?.() },
-  sources:   { title: 'Per-Source Breakdown',      desc: 'Visualisasi adaptif per sumber — menyesuaikan data yang tertangkap',  render: () => window.renderSourcesPage?.() },
-  historical:{ title: 'Historical Analytics',      desc: 'Tren antar run scrape dari database — dedup global, data unik saja',  render: () => window.renderHistorical?.() },
-  ai:        { title: 'AI Insight',                desc: 'Ringkasan eksekutif, rekomendasi, dan chatbot analisis',              render: () => window.renderAI?.() },
+  scrape:    { title: 'Scrape & Analysis',       desc: 'Kumpulkan data dari 6 platform lalu analisis sentimennya',            render: () => window.renderScrape?.() },
+  dashboard: { title: 'Visualization Overview',  desc: 'Parameter bersama dari semua sumber dalam satu tampilan',             render: () => window.renderDashboard?.() },
+  sources:   { title: 'Per-Source Breakdown',    desc: 'Visualisasi adaptif per sumber — menyesuaikan data yang tertangkap',  render: () => window.renderSourcesPage?.() },
+  historical:{ title: 'Historical Analytics',    desc: 'Tren antar run scrape dari database — dedup global, data unik saja',  render: () => window.renderHistorical?.() },
+  ai:        { title: 'AI Insight',              desc: 'Ringkasan eksekutif, rekomendasi, dan chatbot analisis',              render: () => window.renderAI?.() },
 };
 
 function navigate(page) {
@@ -136,11 +136,24 @@ function plotLayout(overrides) {
 
 // Reflow chart saat tab berganti (chart yang dirender dalam panel tersembunyi
 // bisa berukuran 0 dan tampak gepeng setelah tampil).
+// NOTE: Plotly.Plots.resize saja TIDAK memperbaiki chart yang salah ukur
+// (SVG melebihi container — hanya terlihat setengah). Perbaiki dengan
+// relayout width eksplisit dari lebar container terkini.
 function resizePlots(container) {
   if (!window.Plotly) return;
   const scope = container || document;
   scope.querySelectorAll('.plotly-chart, .js-plotly-plot').forEach(el => {
-    if (el.offsetParent !== null) {        // hanya elemen yang benar-benar terlihat
+    if (el.offsetParent === null) return;   // hanya elemen yang benar-benar terlihat
+    const w = Math.floor(el.getBoundingClientRect().width);
+    if (!w || w < 40) return;
+    try {
+      const cur = el._fullLayout && el._fullLayout.width;
+      if (cur && Math.abs(cur - w) > 2) {
+        Plotly.relayout(el, { width: w });
+      } else {
+        Plotly.Plots.resize(el);
+      }
+    } catch (_) {
       try { Plotly.Plots.resize(el); } catch (_) {}
     }
   });

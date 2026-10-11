@@ -50,7 +50,7 @@ window.renderAI = function () {
 <!-- AI Summary -->
 <div class="section-card mb-4" id="card-summary">
   <div class="flex items-center justify-between mb-3">
-    <div class="section-title"><span class="material-symbols-outlined">description</span> Executive Summary</div>
+    <div class="section-title"><span class="material-symbols-outlined">description</span> Ringkasan Eksekutif</div>
     <button class="btn btn-secondary btn-sm" id="btn-summary" onclick="genSummary()">
       <span class="material-symbols-outlined text-[16px]">refresh</span> Generate
     </button>
@@ -66,7 +66,7 @@ window.renderAI = function () {
 <!-- AI Reco -->
 <div class="section-card mb-4" id="card-reco">
   <div class="flex items-center justify-between mb-3">
-    <div class="section-title"><span class="material-symbols-outlined">lightbulb</span> Consideration &amp; Rekomendasi</div>
+    <div class="section-title"><span class="material-symbols-outlined">lightbulb</span> Pertimbangan &amp; Rekomendasi</div>
     <button class="btn btn-secondary btn-sm" id="btn-reco" onclick="genReco()">
       <span class="material-symbols-outlined text-[16px]">refresh</span> Generate
     </button>
@@ -173,7 +173,7 @@ function aiRenderSessionKpis() {
   wrap.innerHTML = `
 <div class="grid grid-cols-2 xl:grid-cols-4 gap-3 mb-4">
   ${kpiCard('Keyword',             esc(meta.keyword||'—'),     `mode: ${meta.mode||'?'}`,                 'search',                   '#005d97')}
-  ${kpiCard('Total Data',          fmt(st.total),              `${[...new Set(rows.map(r=>r.source))].length} sumber`, 'analytics',    '#1e9e6a')}
+  ${kpiCard('Total Teks Dianalisis',          fmt(st.total),              `${[...new Set(rows.map(r=>r.source))].length} sumber`, 'analytics',    '#1e9e6a')}
   ${kpiCard('Net Sentiment Score', `${st.skor>=0?'+':''}${st.skor.toFixed(1)}`, `GSS ${st.gss.toFixed(1)}/100`, 'sentiment_very_satisfied', st.skor>=0?'#1e9e6a':'#d64545')}
   ${kpiCard('Durasi Scrape',       `${meta.durasi||'?'}s`,     `${meta.stamp||''}`,                        'timer',                    '#005d97')}
 </div>`;

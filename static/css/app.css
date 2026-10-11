@@ -318,4 +318,11 @@ details.expander > .expander-body { padding: 0 16px 16px; }
 ::-webkit-scrollbar-thumb { background: #d5e2ec; border-radius: 99px; }
 
 /* ── Plotly override ────────────────────────────────── */
-.plotly-chart { border-radius: 10px; overflow: hidden; }
+.plotly-chart {
+  border-radius: 10px; overflow: hidden;
+  width: 100%; min-width: 0;        /* grid item boleh menyusut, chart ikut lebar kolom */
+}
+/* Grid card: cegah anak melebarkan kolom (penyebab chart tampak terpotong) */
+.section-card { min-width: 0; }
+.section-card > .plotly-chart,
+.section-card .js-plotly-plot { width: 100% !important; }
