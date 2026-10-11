@@ -567,38 +567,155 @@ def scrape_url_ig(url, max_comments=100, log=print):
 
 
 def scrape_url_yt(url, max_comments=100, log=print):
-    """Scrape comments from a single YouTube video URL."""
-    from youtube_comment_downloader import YoutubeCommentDownloader, SORT_BY_RECENT
-    from datetime import datetime, timezone
+    """Scrape comments from a single YouTube video URL.
 
-    dl = YoutubeCommentDownloader()
-    rows = []
-    try:
-        for c in dl.get_comments_from_url(url, sort_by=SORT_BY_RECENT):
-            t = (c.get("text") or "").replace("\n", " ").strip()
-            if not t:
-                continue
-            tp = c.get("time_parsed")
-            if isinstance(tp, (int, float)) and tp:
-                date = datetime.fromtimestamp(tp, tz=timezone.utc).isoformat()
-            elif hasattr(tp, "isoformat"):
-                date = tp.isoformat()
-            else:
-                date = ""
-            rows.append({
-                "source": "youtube",
-                "text": t,
-                "author": c.get("author", "") or "",
-                "date": date,
-                "likes": c.get("votes", 0) or 0,
-                "url": url,
-            })
-            log(f"YT URL: {len(rows)} komentar")
-            if len(rows) >= max_comments:
-                break
-    except Exception as e:
-        raise RuntimeError(f"YT: gagal scrape URL: {e}")
-    return rows
+    Robust terhadap layout A/B YouTube: parse ytInitialData sendiri,
+    ambil komentar via youtubei/v1/next (commentEntityPayload).
+    """
+    import re as _re
+    import json as _json
+    import time as _time
+    import requests as _rq
+    from itertools import chain
+
+    vid_m = _re.search(r"(?:v=|youtu\.be/|shorts/)([\w-]{11})", url)
+    if not vid_m:
+        raise RuntimeError("YT: URL video tidak dikenali")
+    watch_url = f"https://www.youtube.com/watch?v={vid_m.group(1)}"
+
+    headers = {"User-Agent": UA, "Accept-Language": "id-ID,id;q=0.9,en;q=0.8"}
+
+    def walk(obj, key):
+        """Yield semua value dengan key tertentu di JSON nested."""
+        if isinstance(obj, dict):
+            for k, v in obj.items():
+                if k == key:
+                    yield v
+                yield from walk(v, key)
+        elif isinstance(obj, list):
+            for v in obj:
+                yield from walk(v, key)
+
+    def _likes_int(s):
+        s = (s or "0").strip()
+        try:
+            if s.endswith("K"):
+                return int(float(s[:-1]) * 1_000)
+            if s.endswith("Jt") or s.endswith("M"):
+                return int(float(s[:-2] if s.endswith("Jt") else s[:-1]) * 1_000_000)
+            return int(s.replace(".", "").replace(",", ""))
+        except ValueError:
+            return 0
+
+    last_err = None
+    for attempt in range(3):
+        rows = []
+        try:
+            s = _rq.Session()
+            s.headers.update(headers)
+            r = s.get(watch_url, timeout=30)
+            r.raise_for_status()
+            html = r.text
+
+            key_m = _re.search(r'"INNERTUBE_API_KEY":"([\w-]+)"', html)
+            ver_m = _re.search(r'"INNERTUBE_CLIENT_VERSION":"([\d.]+)"', html)
+            if not key_m:
+                raise RuntimeError("INNERTUBE_API_KEY tidak ditemukan")
+            ytcfg = {
+                "INNERTUBE_API_KEY": key_m.group(1),
+                "INNERTUBE_CONTEXT": {"client": {
+                    "clientName": "WEB",
+                    "clientVersion": ver_m.group(1) if ver_m else "2.20261009.01.00",
+                    "hl": "id", "gl": "ID",
+                }},
+            }
+
+            m = (_re.search(r"var ytInitialData\s*=\s*({.+?});</script>", html, _re.S)
+                 or _re.search(r'window\["ytInitialData"\]\s*=\s*({.+?});', html, _re.S))
+            if not m:
+                raise RuntimeError("ytInitialData tidak ditemukan")
+            data = _json.loads(m.group(1))
+
+            # Endpoint komentar: dari sort menu (index 1 = Terbaru), fallback
+            # ke continuation pertama dari itemSection manapun.
+            sm = next(walk(data, "sortFilterSubMenuRenderer"), {})
+            sub = sm.get("subMenuItems") or []
+            eps = [x.get("serviceEndpoint") for x in sub if x.get("serviceEndpoint")]
+            cont_ep = eps[1] if len(eps) > 1 else (eps[0] if eps else None)
+            if cont_ep is None:
+                for sec in walk(data, "itemSectionRenderer"):
+                    for cir in walk(sec, "continuationItemRenderer"):
+                        ep = cir.get("continuationEndpoint")
+                        if ep:
+                            cont_ep = ep
+                            break
+                    if cont_ep:
+                        break
+            if cont_ep is None:
+                raise RuntimeError("endpoint komentar tidak ditemukan")
+
+            api_url = "https://www.youtube.com" + \
+                cont_ep["commandMetadata"]["webCommandMetadata"]["apiUrl"]
+            continuations = [cont_ep]
+            pages = 0
+            while continuations and len(rows) < max_comments and pages < 40:
+                ep = continuations.pop()
+                token = ep.get("continuationCommand", {}).get("token") or \
+                    ep.get("continuation", {}).get("token", "")
+                body = {"context": ytcfg.get("INNERTUBE_CONTEXT", {}), "continuation": token}
+                resp = s.post(api_url, params={"key": ytcfg["INNERTUBE_API_KEY"]},
+                              json=body, timeout=30)
+                if resp.status_code != 200:
+                    break
+                rj = resp.json()
+
+                for c in walk(rj, "commentEntityPayload"):
+                    props = c.get("properties", {}) or {}
+                    author = c.get("author", {}) or {}
+                    toolbar = c.get("toolbar", {}) or {}
+                    t = (props.get("content", {}) or {}).get("content") or ""
+                    if not t:
+                        continue
+                    rows.append({
+                        "source": "youtube",
+                        "text": t.replace("\n", " ").strip()[:3000],
+                        "author": author.get("displayName", "") or "",
+                        "date": props.get("publishedTime", "") or "",
+                        "likes": _likes_int(toolbar.get("likeCountNotliked", "0")),
+                        "url": watch_url,
+                    })
+                    if len(rows) >= max_comments:
+                        break
+
+                if len(rows) < max_comments:
+                    actions = chain(walk(rj, "reloadContinuationItemsCommand"),
+                                    walk(rj, "appendContinuationItemsAction"))
+                    for a in actions:
+                        if a.get("targetId") in ("comments-section",
+                                                 "engagement-panel-comments-section",
+                                                 "shorts-engagement-panel-comments-section"):
+                            for item in a.get("continuationItems", []):
+                                for nep in walk(item, "continuationEndpoint"):
+                                    continuations.insert(0, nep)
+                    pages += 1
+                _time.sleep(0.1)
+
+            if rows:
+                log(f"YT URL: {len(rows)} komentar")
+                return rows[:max_comments]
+            # Server jawab normal tapi tidak ada komentar -> kemungkinan besar
+            # komentar dinonaktifkan/dibatasi utk video ini. Jangan retry.
+            log("YT URL: tidak ada komentar yang bisa diakses")
+            raise RuntimeError(
+                "Tidak ada komentar yang bisa diakses untuk video ini "
+                "(komentar mungkin dinonaktifkan oleh pembuat video).")
+        except RuntimeError as e:
+            last_err = e
+        except Exception as e:
+            last_err = RuntimeError(f"YT: {type(e).__name__}: {str(e)[:150]}")
+        _time.sleep(2)
+
+    raise last_err or RuntimeError("YT: gagal scrape URL")
 
 
 def scrape_url_facebook(url, max_comments=100, log=print):
@@ -638,9 +755,16 @@ def scrape_url_facebook(url, max_comments=100, log=print):
             raise RuntimeError("Facebook: timeout loading page")
 
         page.wait_for_timeout(5000)
+        # Scroll beberapa kali agar komentar termuat
+        for _ in range(3):
+            page.mouse.wheel(0, 3000)
+            page.wait_for_timeout(1500)
         # Expand comments
         for _ in range(5):
-            btns = page.query_selector_all('[role="button"]:has-text("View more comments")')
+            btns = page.query_selector_all('[role="button"]:has-text("View more comments"), '
+                                          '[role="button"]:has-text("Lihat komentar lainnya"), '
+                                          '[role="button"]:has-text("View more replies"), '
+                                          '[role="button"]:has-text("Balas lainnya")')
             if not btns:
                 break
             for b in btns[:3]:
@@ -650,8 +774,11 @@ def scrape_url_facebook(url, max_comments=100, log=print):
                 except Exception:
                     pass
 
-        # Extract comments
-        comment_els = page.query_selector_all('[aria-label="Comment"]')
+        # Extract comments (aria-label: "Comment by <nama> <waktu>" / "Komentar oleh ...")
+        import re as _re
+        comment_els = page.query_selector_all(
+            '[aria-label^="Comment by"], [aria-label^="Komentar oleh"]')
+        seen = set()
         for el in comment_els:
             if len(rows) >= max_comments:
                 break
@@ -659,10 +786,17 @@ def scrape_url_facebook(url, max_comments=100, log=print):
                 text = el.inner_text().strip().replace("\n", " ")
                 if len(text) < 5:
                     continue
+                key = _re.sub(r"\s+", " ", text)[:200]
+                if key in seen:
+                    continue
+                seen.add(key)
+                label = el.get_attribute("aria-label") or ""
+                author = _re.sub(r"^(Comment by|Komentar oleh)\s+", "", label)
+                author = _re.sub(r"\s+(?:a|an|\d+|se)\s*\S*\s*(?:\w+\s+)?(?:ago|lalu)$", "", author).strip()
                 rows.append({
                     "source": "facebook",
                     "text": text[:3000],
-                    "author": "",
+                    "author": author[:100],
                     "date": "",
                     "likes": 0,
                     "url": url,
