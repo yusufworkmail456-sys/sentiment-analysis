@@ -291,7 +291,7 @@ async function loadRulesPanel() {
             <div class="text-[12px] font-semibold mb-1">${esc(cat)} <span class="text-[11px] text-on-surface-variant">(${ents.length})</span></div>
             <div class="flex flex-wrap gap-1">${chips(ents)}</div>
           </div>`).join('') || '<div class="text-[12px] text-on-surface-variant">Kosong.</div>'}
-      </div>`;
+      </div>`);
   } catch (e) {
     els.forEach(el => el.innerHTML = '<div class="text-[12px] text-on-surface-variant">Gagal memuat aturan.</div>');
   }
