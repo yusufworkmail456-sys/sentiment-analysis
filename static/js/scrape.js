@@ -681,8 +681,59 @@ function renderTrustSection(rows, botTotal, botCount, entCount) {
       ${entCount ? `<span class="chip chip-info">${entCount} baris menyebut pihak lain</span>` : ''}
     </div>
   </div>
-  <p class="section-desc">Deteksi bot = heuristic (pola username, teks spam, duplikat). Entity = pihak/organisasi ikut disebut dalam komentar. Keduanya aktif via toggle di Konfigurasi Scrape.</p>
-  <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">${charts}</div>
+  <p class="section-desc">Deteksi bot = heuristic (pola username, teks spam, duplikat). Entity = pihak/organisasi ikut disebut dalam komentar. Keduanya aktif via toggle di Konfigurasi Scrape — daftar aturannya ada di expander "Aturan Deteksi" di atas.</p>
+  <div class="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-4">${charts}</div>
+  ${renderTrustExamples(rows)}
+</div>`;
+}
+
+// ── Contoh komentar: dugaan bot + penyebutan pihak lain ──
+function renderTrustExamples(rows) {
+  const card = (r, badge, extra) => `
+<div class="comment-card ${extra}">
+  <div class="comment-meta">${esc(SOURCE_LABEL[r.source] || r.source)} · ${esc(r.author || 'anon')} · likes ${r.likes || 0}</div>
+  <div class="comment-text">${esc(String(r.text || '').slice(0, 220))}</div>
+  <div class="mt-1 flex flex-wrap gap-1 items-center">${badge}</div>
+</div>`;
+
+  // Dugaan bot: urut terbanyak likes (paling berbahaya kalau tidak disaring)
+  const bots = rows
+    .filter(r => r.is_bot_suspect === true || r.is_bot_suspect === 'True')
+    .sort((a, b) => (b.likes || 0) - (a.likes || 0))
+    .slice(0, 5)
+    .map(r => card(r,
+      `<span class="chip chip-neg">bot?</span>` +
+      (r.bot_reasons ? `<span class="text-[11px] text-on-surface-variant">${esc(r.bot_reasons)}</span>` : ''),
+      'neg'));
+
+  // Penyebutan pihak lain: tampilkan entitas + kategorinya
+  const ents = rows
+    .filter(r => r.entity_mentions && String(r.entity_mentions).trim())
+    .slice(0, 5)
+    .map(r => {
+      let names = '';
+      try {
+        const m = typeof r.entity_mentions === 'string' ? JSON.parse(r.entity_mentions) : r.entity_mentions;
+        names = Object.entries(m || {}).map(([cat, list]) =>
+          `<span class="chip chip-info" style="font-size:11px;">${esc(cat)}: ${esc((list || []).join(', '))}</span>`).join(' ');
+      } catch (_) {}
+      return card(r,
+        (r.entity_categories ? `<span class="text-[11px] font-semibold text-on-surface-variant">${esc(r.entity_categories)}</span>` : '') + names,
+        'neu');
+    });
+
+  const sec = (title, items, emptyMsg, icon) => `
+<div>
+  <div class="text-[11px] font-bold text-on-surface-variant mb-2">
+    <span class="material-symbols-outlined text-[14px] align-middle">${icon}</span> ${title}
+  </div>
+  ${items.length ? items.join('') : `<div class="text-[12px] text-on-surface-variant">${emptyMsg}</div>`}
+</div>`;
+
+  return `
+<div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+  ${sec('Contoh komentar dugaan bot', bots, 'Tidak ada komentar terindikasi bot di run ini.', 'smart_toy')}
+  ${sec('Contoh komentar menyebut pihak lain', ents, 'Tidak ada komentar yang menyebut pihak lain di run ini (atau tag entity nonaktif).', 'group')}
 </div>`;
 }
 
