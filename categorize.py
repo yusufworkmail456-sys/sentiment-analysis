@@ -138,9 +138,16 @@ BOT_TEXT_PATTERNS = [
     r"(dm\s?me|inbox\s?me|hubungi\s?wa)",
     r"(.)\1{6,}",               # aaaaaaa repeated chars
     r"^[\U0001F600-\U0001F9FF\s]{5,}$",  # only emojis
+    r"(wa\.me/|t\.me/|s\.id/|cutt\.ly)",  # link spam WA/Telegram/shortener
+    r"\b(wd|jp)\b",             # istilah judi singkat: WD, JP
 ]
 BOT_KEYWORDS = ["promo", "diskon gila", "jual followers", "jual like", "endorse",
-                "open jastip", "giveaway palsu", "bot", "spam", "fake"]
+                "open jastip", "giveaway palsu", "bot", "spam", "fake",
+                # judi online / judol
+                "judi", "judol", "slot", "togel", "casino", "jackpot",
+                "maxwin", "scatter", "bandar", "situs judi", "judi online",
+                "slot gacor", "gacor", "deposit 25", "daftar sekarang",
+                "link daftar", "bo kecil", "rungkad"]
 
 
 def detect_bot(text, author="", likes=0, threshold=2):
@@ -167,12 +174,11 @@ def detect_bot(text, author="", likes=0, threshold=2):
             score += 1
             break
 
-    # Bot keyword check
-    for kw in BOT_KEYWORDS:
-        if kw in text_lower:
-            reasons.append(f"keyword: {kw}")
-            score += 1
-            break
+    # Bot keyword check — hitung semua keyword yang kena (bukan cuma pertama)
+    matched_kw = [kw for kw in BOT_KEYWORDS if kw in text_lower]
+    if matched_kw:
+        reasons.append("keyword: " + ", ".join(matched_kw))
+        score += len(matched_kw)
 
     # Very short text with high likes is suspicious
     if len(str(text).strip()) < 5 and likes > 100:
@@ -260,3 +266,35 @@ def tag_entities_df(df):
     df["entity_mentions"] = mentions
     df["entity_categories"] = categories
     return df
+
+
+# ==================================================== RULES INSPECT (utk UI)
+def get_rules():
+    """Return aturan deteksi yang aktif — ditampilkan read-only di UI."""
+    return {
+        "bot_keywords": list(BOT_KEYWORDS),
+        "bot_text_patterns": [
+            {"pattern": p, "desc": d}
+            for p, d in zip(BOT_TEXT_PATTERNS, [
+                "Ajakan follow-for-follow (f4f, like4like, dll)",
+                "Ajakan klik link / shortener umum (bit.ly, tinyurl, t.co)",
+                "Ajakan DM/inbox/WA",
+                "Karakter berulang berlebihan (aaaaaaa…)",
+                "Hanya emoji (5+)",
+                "Link spam WA/Telegram/shortener (wa.me, t.me, s.id, cutt.ly)",
+                "Istilah judi singkat: WD, JP",
+            ])
+        ],
+        "bot_username_patterns": [
+            {"pattern": p, "desc": d}
+            for p, d in zip(BOT_USERNAME_PATTERNS, [
+                "user + 6 digit (user123456)",
+                "2-4 huruf + 8 digit (ab12345678)",
+                "kata_kata + 3 digit",
+                "nama.nama + 4 digit",
+                "username numerik murni",
+            ])
+        ],
+        "bot_threshold": 2,   # min skor (1 keyword = 1) utk flag dugaan bot
+        "entity_dict": {cat: list(ents) for cat, ents in ENTITY_DICT.items()},
+    }

@@ -269,3 +269,10 @@ async def scrape_url(req: ScrapeUrlRequest):
     except Exception as e:
         return {"ok": False, "error": f"Server error: {type(e).__name__}: {str(e)[:300]}", "logs": []}
     return result
+
+
+@router.get("/scrape/rules")
+async def scrape_rules():
+    """Aturan deteksi bot + entity yang aktif — read-only utk panel UI."""
+    from categorize import get_rules
+    return {"ok": True, "rules": get_rules()}

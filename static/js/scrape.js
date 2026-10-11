@@ -147,6 +147,13 @@ window.renderScrape = function () {
         </div>
         <p class="text-[11px] text-on-surface-variant mb-4">Target jumlah dikejar per sumber: kalau kurang (duplikat dibuang / stok komentar platform habis), scraper otomatis diulang dengan over-fetch sampai target tercapai atau stok benar-benar habis. Capaian per sumber dilaporkan di log &amp; KPI.</p>
 
+        <details class="expander mb-4">
+          <summary><span class="material-symbols-outlined text-[18px] text-on-surface-variant">rule</span> Aturan Deteksi Bot &amp; Entity (aktif)</summary>
+          <div class="expander-body" id="rules-body">
+            <div class="text-[12px] text-on-surface-variant">Memuat aturan…</div>
+          </div>
+        </details>
+
         <button class="btn btn-primary btn-full" id="btn-run-kw" onclick="runScrapeKeyword()">
           <span class="material-symbols-outlined text-[18px]">radar</span> Mulai Scrape + Analisis
         </button>
@@ -240,8 +247,48 @@ window.renderScrape = function () {
 
   initTabs('scrape-tabs');
   loadSessionStatus();
+  loadRulesPanel();
   refreshHistory();
 };
+
+// ── Rules panel: aturan bot/entity aktif (read-only) ──
+async function loadRulesPanel() {
+  const el = document.getElementById('rules-body');
+  if (!el) return;
+  try {
+    const d = await apiGet('/api/scrape/rules');
+    const r = d.rules || {};
+    const chips = (arr, cls) => (arr || []).map(x =>
+      `<span class="chip ${cls || 'chip-info'}" style="font-size:11px;">${esc(x)}</span>`).join(' ');
+    const patternRows = (pats) => (pats || []).map(p => `
+      <tr><td class="text-cell" style="font-family:monospace;font-size:11px;">${esc(p.pattern)}</td>
+      <td class="text-cell">${esc(p.desc)}</td></tr>`).join('');
+    const entCats = Object.entries(r.entity_dict || {});
+    el.innerHTML = `
+      <div class="mb-3">
+        <div class="text-[11px] font-bold text-on-surface-variant mb-1">Keyword bot/spam (dugaan bot bila skor &ge; ${r.bot_threshold ?? 2}; 1 keyword = 1 skor)</div>
+        <div class="flex flex-wrap gap-1">${chips(r.bot_keywords, 'chip-neg')}</div>
+      </div>
+      <div class="mb-3">
+        <div class="text-[11px] font-bold text-on-surface-variant mb-1">Pola teks</div>
+        <table class="data-table"><thead><tr><th>Pola</th><th>Arti</th></tr></thead><tbody>${patternRows(r.bot_text_patterns)}</tbody></table>
+      </div>
+      <div class="mb-3">
+        <div class="text-[11px] font-bold text-on-surface-variant mb-1">Pola username</div>
+        <table class="data-table"><thead><tr><th>Pola</th><th>Arti</th></tr></thead><tbody>${patternRows(r.bot_username_patterns)}</tbody></table>
+      </div>
+      <div>
+        <div class="text-[11px] font-bold text-on-surface-variant mb-1">Dictionary pihak/entitas</div>
+        ${entCats.map(([cat, ents]) => `
+          <div class="mb-2">
+            <div class="text-[12px] font-semibold mb-1">${esc(cat)} <span class="text-[11px] text-on-surface-variant">(${ents.length})</span></div>
+            <div class="flex flex-wrap gap-1">${chips(ents)}</div>
+          </div>`).join('') || '<div class="text-[12px] text-on-surface-variant">Kosong.</div>'}
+      </div>`;
+  } catch (e) {
+    el.innerHTML = '<div class="text-[12px] text-on-surface-variant">Gagal memuat aturan.</div>';
+  }
+}
 
 // ── Credential status ──────────────────────────────
 async function loadSessionStatus() {
