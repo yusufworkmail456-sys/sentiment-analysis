@@ -307,40 +307,53 @@ def scrape_playstore(keyword, max_comments=100, log=print):
 
     per_app = max(10, max_comments // max(len(apps_to_scrape), 1))
     total_collected = 0
-    is_known_app = any(keyword_lower in an.lower() or pkg in keyword_lower
-                      for an, pkg in PLAYSTORE_APPS.items())
 
     for app_name, pkg_id in apps_to_scrape:
         if total_collected >= max_comments:
             break
+        # App dipilih karena nama/paketnya match keyword -> isi review tidak
+        # harus menyebut keyword lagi (filter per-teks membuang review relevan).
+        # Filter per-teks hanya utk app dari search yang judulnya tidak match.
+        app_is_match = (keyword_lower in app_name.lower()
+                        or keyword_lower in str(pkg_id).lower())
         try:
-            result, _ = reviews(
-                pkg_id,
-                lang="id",
-                country="id",
-                sort=Sort.NEWEST,
-                count=min(per_app, max_comments - total_collected),
-            )
-            for r in result:
-                if total_collected >= max_comments:
-                    break
-                text = (r.get("content") or "").strip().replace("\n", " ")
-                if len(text) < 5:
-                    continue
-                # If keyword is not a known app, filter reviews by keyword
-                if not is_known_app:
-                    if keyword_lower not in text.lower():
+            token = None
+            pages = 0
+            max_pages = 5   # pagination continuation: halaman berikutnya kalau masih kurang
+            while total_collected < max_comments and pages < max_pages:
+                result, token = reviews(
+                    pkg_id,
+                    lang="id",
+                    country="id",
+                    sort=Sort.NEWEST,
+                    count=max(per_app, max_comments - total_collected),
+                    continuation_token=token,
+                )
+                pages += 1
+                new_here = 0
+                for r in result:
+                    if total_collected >= max_comments:
+                        break
+                    text = (r.get("content") or "").strip().replace("\n", " ")
+                    if len(text) < 5:
                         continue
-                rows.append({
-                    "source": "playstore",
-                    "text": text[:3000],
-                    "author": r.get("userName", ""),
-                    "date": r.get("at").isoformat() if r.get("at") else "",
-                    "likes": r.get("thumbsUpCount", 0) or 0,
-                    "url": f"https://play.google.com/store/apps/details?id={pkg_id}",
-                })
-                total_collected += 1
-            log(f"Play Store: '{app_name}': +{len(result)} reviews (total {total_collected})")
+                    if not app_is_match and keyword_lower not in text.lower():
+                        continue
+                    rows.append({
+                        "source": "playstore",
+                        "text": text[:3000],
+                        "author": r.get("userName", ""),
+                        "date": r.get("at").isoformat() if r.get("at") else "",
+                        "likes": r.get("thumbsUpCount", 0) or 0,
+                        "url": f"https://play.google.com/store/apps/details?id={pkg_id}",
+                    })
+                    total_collected += 1
+                    new_here += 1
+                log(f"Play Store: '{app_name}' hal {pages}: +{new_here} reviews "
+                    f"(total {total_collected})")
+                if not result or not token:
+                    break
+                time.sleep(0.5)
         except Exception as e:
             log(f"Play Store: '{app_name}' gagal: {type(e).__name__} {str(e)[:80]}")
         time.sleep(0.5)

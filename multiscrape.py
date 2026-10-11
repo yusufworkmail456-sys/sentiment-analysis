@@ -309,59 +309,98 @@ def scrape_web(keyword, max_articles=10, log=print):
     import trafilatura
 
     from urllib.parse import parse_qs, quote, unquote, urlparse
-    rss = (f"https://www.bing.com/news/search?q={quote(keyword)}"
-           f"&format=RSS&setmkt=id-ID&setlang=id")
-    try:
-        r = _http_get(rss)
-        r.raise_for_status()
-        log("web: RSS Bing News ok (direct)")
-    except Exception as e:
-        log(f"web: RSS direct gagal ({str(e)[:60]}), via WARP ...")
-        r = _http_get(rss, proxy=True)
-        r.raise_for_status()
-        log("web: RSS Bing News ok (via WARP)")
-    feed = feedparser.parse(r.text)
-    log(f"web: {len(feed.entries)} artikel di RSS")
+    k = quote(keyword)
+    feeds = [
+        ("Bing News",
+         f"https://www.bing.com/news/search?q={k}&format=RSS&setmkt=id-ID&setlang=id"),
+        ("Bing Web",
+         f"https://www.bing.com/search?q={k}&format=RSS&setmkt=id-ID&setlang=id&count=30"),
+    ]
 
     rows = []
-    for ent in feed.entries[: max_articles * 3]:
+    seen_urls = set()
+    for nama_feed, rss in feeds:
         if len(rows) >= max_articles:
             break
-        link = ent.get("link", "")
-        if not link:
-            continue
-        # link Bing = apiclick.aspx?...&url=<target asli>
-        q = parse_qs(urlparse(link).query)
-        target = unquote(q.get("url", [link])[0])
-        try:
-            resp = _http_get(target, allow_redirects=True)
-            final_url, html = resp.url, resp.text
-        except Exception as e:
-            log(f"web: fetch gagal: {str(e)[:60]}")
-            continue
-        text = trafilatura.extract(html, url=final_url,
-                                   include_comments=False) or ""
-        text = " ".join(text.split())
-        if len(text) < 200:
-            continue
-        src = ""
-        try:
-            src = ent.source.title
-        except Exception:
-            pass
-        date = ""
-        if ent.get("published_parsed"):
-            date = datetime.fromtimestamp(
-                time.mktime(ent.published_parsed), tz=timezone.utc).isoformat()
-        rows.append({
-            "source": "web",
-            "text": text[:3000],
-            "author": src,
-            "date": date,
-            "likes": 0,
-            "url": final_url,
-        })
-        log(f"web: {src or final_url[:40]}: ok (total {len(rows)})")
+        # Bing News RSS bisa dipaginasi via &first=N (1, 11, 21, ...) —
+        # 1 halaman cuma ~9-10 entri, sering kurang utk target 10.
+        feed_urls = [rss]
+        if nama_feed == "Bing News":
+            for offset in (11, 21):
+                feed_urls.append(f"{rss}&first={offset}")
+        entries = []
+        seen_links = set()
+        for fu in feed_urls:
+            try:
+                r = _http_get(fu)
+                r.raise_for_status()
+            except Exception as e:
+                log(f"web: {nama_feed} gagal ({str(e)[:60]})")
+                continue
+            f = feedparser.parse(r.text)
+            new = 0
+            for ent in f.entries:
+                if ent.get("link") and ent["link"] not in seen_links:
+                    seen_links.add(ent["link"])
+                    entries.append(ent)
+                    new += 1
+            label_hal = fu.split("first=")[-1] if "first=" in fu else "1"
+            log(f"web: {nama_feed} hal {label_hal}: +{new} entri")
+            if new == 0:
+                break
+        log(f"web: {nama_feed}: {len(entries)} entri total")
+
+        for ent in entries:
+            if len(rows) >= max_articles:
+                break
+            link = ent.get("link", "")
+            if not link:
+                continue
+            # link Bing/Google News = redirect -> ambil URL target asli
+            q = parse_qs(urlparse(link).query)
+            target = unquote(q.get("url", [link])[0])
+            if target in seen_urls:
+                continue
+            host = urlparse(target).netloc.lower()
+            if not host or "." not in host:
+                continue
+            base_host = host[4:] if host.startswith("www.") else host
+            if any(base_host == d or base_host.endswith("." + d) or base_host.startswith(d)
+                   for d in ("google.com", "youtube.com", "bing.com", "microsoft.com",
+                             "facebook.com", "instagram.com", "twitter.com", "x.com",
+                             "tiktok.com", "wikipedia.org", "yahoo.com")):
+                log(f"web: skip {host} (bukan artikel)")
+                continue
+            try:
+                resp = _http_get(target, allow_redirects=True)
+                final_url, html = resp.url, resp.text
+            except Exception as e:
+                log(f"web: fetch gagal: {str(e)[:60]}")
+                continue
+            text = trafilatura.extract(html, url=final_url,
+                                       include_comments=False) or ""
+            text = " ".join(text.split())
+            if len(text) < 200:
+                continue
+            seen_urls.add(target)
+            src = ""
+            try:
+                src = ent.source.title
+            except Exception:
+                pass
+            date = ""
+            if ent.get("published_parsed"):
+                date = datetime.fromtimestamp(
+                    time.mktime(ent.published_parsed), tz=timezone.utc).isoformat()
+            rows.append({
+                "source": "web",
+                "text": text[:3000],
+                "author": src,
+                "date": date,
+                "likes": 0,
+                "url": final_url,
+            })
+            log(f"web: {src or final_url[:40]}: ok (total {len(rows)})")
     return rows
 
 
