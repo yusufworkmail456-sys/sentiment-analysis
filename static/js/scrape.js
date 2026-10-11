@@ -149,7 +149,7 @@ window.renderScrape = function () {
 
         <details class="expander mb-4">
           <summary><span class="material-symbols-outlined text-[18px] text-on-surface-variant">rule</span> Aturan Deteksi Bot &amp; Entity (aktif)</summary>
-          <div class="expander-body" id="rules-body">
+          <div class="expander-body rules-body" id="rules-body">
             <div class="text-[12px] text-on-surface-variant">Memuat aturan…</div>
           </div>
         </details>
@@ -187,7 +187,7 @@ window.renderScrape = function () {
           <input class="form-input" id="url-limit" type="number" min="10" max="500" value="100"/>
         </div>
       </div>
-      <div class="flex gap-6 mb-4">
+      <div class="flex gap-6 mb-2">
         <label class="toggle-wrap">
           <label class="toggle"><input type="checkbox" id="url-do-bot"/><span class="toggle-slider"></span></label>
           <span class="toggle-label">Deteksi bot/spam</span>
@@ -197,6 +197,13 @@ window.renderScrape = function () {
           <span class="toggle-label">Tag entity mentions</span>
         </label>
       </div>
+      <details class="expander mb-4">
+        <summary><span class="material-symbols-outlined text-[18px] text-on-surface-variant">rule</span> Aturan Deteksi Bot &amp; Entity (aktif)</summary>
+        <div class="expander-body rules-body">
+          <div class="text-[12px] text-on-surface-variant">Memuat aturan…</div>
+        </div>
+      </details>
+
       <button class="btn btn-primary btn-full" id="btn-run-url" onclick="runScrapeUrl()">
         <span class="material-symbols-outlined text-[18px]">link</span> Scrape URL + Analisis
       </button>
@@ -253,8 +260,8 @@ window.renderScrape = function () {
 
 // ── Rules panel: aturan bot/entity aktif (read-only) ──
 async function loadRulesPanel() {
-  const el = document.getElementById('rules-body');
-  if (!el) return;
+  const els = document.querySelectorAll('.rules-body');
+  if (!els.length) return;
   try {
     const d = await apiGet('/api/scrape/rules');
     const r = d.rules || {};
@@ -264,7 +271,7 @@ async function loadRulesPanel() {
       <tr><td class="text-cell" style="font-family:monospace;font-size:11px;">${esc(p.pattern)}</td>
       <td class="text-cell">${esc(p.desc)}</td></tr>`).join('');
     const entCats = Object.entries(r.entity_dict || {});
-    el.innerHTML = `
+    els.forEach(el => el.innerHTML = `
       <div class="mb-3">
         <div class="text-[11px] font-bold text-on-surface-variant mb-1">Keyword bot/spam (dugaan bot bila skor &ge; ${r.bot_threshold ?? 2}; 1 keyword = 1 skor)</div>
         <div class="flex flex-wrap gap-1">${chips(r.bot_keywords, 'chip-neg')}</div>
@@ -286,7 +293,7 @@ async function loadRulesPanel() {
           </div>`).join('') || '<div class="text-[12px] text-on-surface-variant">Kosong.</div>'}
       </div>`;
   } catch (e) {
-    el.innerHTML = '<div class="text-[12px] text-on-surface-variant">Gagal memuat aturan.</div>';
+    els.forEach(el => el.innerHTML = '<div class="text-[12px] text-on-surface-variant">Gagal memuat aturan.</div>');
   }
 }
 

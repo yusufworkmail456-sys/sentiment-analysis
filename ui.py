@@ -76,7 +76,7 @@ def sidebar_footer(volume: int = 0, total: int = 0) -> str:
         f'<div class="tsp-meter"><div style="width:{pct}%"></div></div>'
         f'<div class="tsp-sb-foot-sub">'
         f'<span>Taspen Sentiment Platform</span>'
-        f'<span class="tsp-gold-text">by Mitra Digital</span></div></div>'
+        f'<span class="tsp-gold-text">Aku Mitra Digital</span></div></div>'
     )
 
 

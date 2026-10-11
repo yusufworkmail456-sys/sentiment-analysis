@@ -20,7 +20,7 @@ import traceback
 from fastapi import Request
 from fastapi.responses import JSONResponse
 
-app = FastAPI(title="Taspen Sentiment Platform", version="2.1.0")
+app = FastAPI(title="Taspen Sentiment Platform", version="2.2.0")
 
 
 @app.exception_handler(Exception)
