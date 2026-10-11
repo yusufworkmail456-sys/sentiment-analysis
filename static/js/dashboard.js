@@ -39,23 +39,6 @@ window.renderDashboard = function () {
   </div>
 </div>
 
-<!-- Time range + granularity bar -->
-<div class="section-card mb-4 flex flex-col sm:flex-row sm:items-center gap-3" id="tr-section">
-  <div class="flex items-center gap-2 flex-1">
-    <span class="material-symbols-outlined text-[18px] text-primary">calendar_today</span>
-    <span class="text-[12px] font-bold text-on-surface">Rentang waktu</span>
-    <select class="form-select" id="tr-select" style="max-width:160px" onchange="renderTimeSection()">
-      <option value="7">7 hari terakhir</option>
-      <option value="30" selected>30 hari terakhir</option>
-      <option value="90">90 hari terakhir</option>
-      <option value="0">Semua waktu</option>
-    </select>
-  </div>
-  <div class="flex items-center gap-2" id="tr-meta">
-    <span class="text-[12px] text-on-surface-variant" id="tr-info">—</span>
-  </div>
-</div>
-
 <!-- Sub-tabs -->
 <div id="dash-tabs">
   <div class="tabs-bar">
@@ -256,10 +239,27 @@ ${alertsHtml}
 </div>
 
 <!-- Row 4: Time series + GSS trend (time-range filtered) -->
+<div class="section-card mb-4" id="tr-section">
+  <div class="flex flex-col sm:flex-row sm:items-center gap-3">
+    <div class="flex items-center gap-2 flex-1">
+      <span class="material-symbols-outlined text-[18px] text-primary">calendar_today</span>
+      <span class="text-[12px] font-bold text-on-surface">Rentang waktu (2 tren di bawah)</span>
+      <select class="form-select" id="tr-select" style="max-width:160px" onchange="renderTimeSection()">
+        <option value="7">7 hari terakhir</option>
+        <option value="30" selected>30 hari terakhir</option>
+        <option value="90">90 hari terakhir</option>
+        <option value="0">Semua waktu</option>
+      </select>
+    </div>
+    <div class="flex items-center gap-2" id="tr-meta">
+      <span class="text-[12px] text-on-surface-variant" id="tr-info">—</span>
+    </div>
+  </div>
+</div>
 <div class="grid grid-cols-1 xl:grid-cols-2 gap-4 mb-4">
   <div class="section-card" id="timeseries-card">
     <div class="section-title"><span class="material-symbols-outlined">monitoring</span> Volume Time Series</div>
-    <p class="section-desc">Volume komentar per hari (stacked) — mengikuti rentang waktu di atas</p>
+    <p class="section-desc">Volume komentar per hari (stacked) — mengikuti rentang waktu yang dipilih</p>
     <div id="chart-timeseries" class="plotly-chart"></div>
   </div>
   <div class="section-card" id="gss-trend-card">
